@@ -1,0 +1,198 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      # ── Global CORS + dedup headers ──────────────────────────────
+      default-filters:
+        - RemoveResponseHeader=Access-Control-Allow-Origin
+        - RemoveResponseHeader=Access-Control-Allow-Credentials
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+              - "http://localhost:5173"
+              - "http://localhost:3000"
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowed-headers: "*"
+            allow-credentials: true
+            max-age: 3600
+
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 10s
+
+      # ── Routes ───────────────────────────────────────────────────
+      # IMPORTANT: More specific paths must come BEFORE less specific ones.
+      # /api/listings/managed/** must be declared before /api/listings/**
+      routes:
+
+        # Listing Service (port 8087) — landlord-managed listings
+        # MUST be first: /api/listings/managed/** is more specific than /api/listings/**
+        - id: listing-service
+          uri: ${LISTING_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/listings/managed/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: listingServiceCB
+                fallbackUri: forward:/fallback
+
+        # Scraper Service (port 8081) — raw scraped listing data
+        - id: scraper-service-listings
+          uri: ${SCRAPER_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/listings/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: scraperServiceCB
+                fallbackUri: forward:/fallback
+
+        # Scraper Service (port 8081) — scrape job control
+        - id: scraper-service-control
+          uri: ${SCRAPER_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/scraper/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: scraperServiceCB
+                fallbackUri: forward:/fallback
+
+        # Analytics Service (port 8082)
+        - id: analytics-service
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/analytics/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: analyticsServiceCB
+                fallbackUri: forward:/fallback
+
+        # User Service (port 8083)
+        - id: user-service
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: userServiceCB
+                fallbackUri: forward:/fallback
+
+        # Alert Service (port 8084)
+        - id: alert-service
+          uri: ${ALERT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/alerts/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: alertServiceCB
+                fallbackUri: forward:/fallback
+
+        # Neighborhood Service (port 8085)
+        - id: neighborhood-service
+          uri: ${NEIGHBORHOOD_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/neighborhoods/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: neighborhoodServiceCB
+                fallbackUri: forward:/fallback
+
+        # Landlord Service (port 8086)
+        - id: landlord-service
+          uri: ${LANDLORD_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/landlords/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: landlordServiceCB
+                fallbackUri: forward:/fallback
+
+        # Notification Service (port 8088)
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8088}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+            - name: CircuitBreaker
+              args:
+                name: notificationServiceCB
+                fallbackUri: forward:/fallback
+
+# ── Actuator ─────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# ── Resilience4j circuit-breaker ─────────────────────────────────
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+    instances:
+      scraperServiceCB:
+        base-config: default
+      analyticsServiceCB:
+        base-config: default
+      userServiceCB:
+        base-config: default
+      alertServiceCB:
+        base-config: default
+      neighborhoodServiceCB:
+        base-config: default
+      landlordServiceCB:
+        base-config: default
+      listingServiceCB:
+        base-config: default
+      notificationServiceCB:
+        base-config: default
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s
+
+# ── Logging ──────────────────────────────────────────────────────
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.client: WARN
