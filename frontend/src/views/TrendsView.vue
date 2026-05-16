@@ -95,12 +95,12 @@ async function loadTrends() {
   noData.value = false
 
   try {
-    const url = `/api/analytics/trends/${encodeURIComponent(selectedNeighborhood.value)}?days=${days.value}`
+    const url = `/api/analytics/trends?neighborhood=${encodeURIComponent(selectedNeighborhood.value)}&days=${days.value}`
     const res = await fetch(url)
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const data = await res.json()
 
-    const points = Array.isArray(data) ? data : (data.trends ?? data.data ?? [])
+    const points = Array.isArray(data) ? data : (data.trend ?? data.data ?? [])
 
     if (points.length === 0) {
       noData.value = true
