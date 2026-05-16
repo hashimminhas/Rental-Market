@@ -8,7 +8,7 @@
     <div class="stat-grid">
       <div class="stat-card">
         <div class="stat-label">Total Listings</div>
-        <div class="stat-value">{{ cityStats.totalListings ?? '—' }}</div>
+        <div class="stat-value">{{ cityStats.totalListings ?? scraperStatus.totalActiveListings ?? '—' }}</div>
         <div class="stat-sub">scraped from kv.ee</div>
       </div>
       <div class="stat-card">
@@ -17,13 +17,13 @@
         <div class="stat-sub">per month</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Avg Size</div>
-        <div class="stat-value">{{ cityStats.averageSize != null ? Number(cityStats.averageSize).toFixed(0) : '—' }} m²</div>
-        <div class="stat-sub">across all listings</div>
+        <div class="stat-label">Price / m²</div>
+        <div class="stat-value">€{{ cityStats.averagePricePerSqm != null ? Number(cityStats.averagePricePerSqm).toFixed(0) : '—' }}</div>
+        <div class="stat-sub">city average</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Neighborhoods</div>
-        <div class="stat-value">{{ neighborhoodStats.length }}</div>
+        <div class="stat-value">{{ neighborhoodCount }}</div>
         <div class="stat-sub">tracked areas</div>
       </div>
       <div class="stat-card">
@@ -33,7 +33,7 @@
             {{ scraperRunning ? 'Running' : 'Idle' }}
           </span>
         </div>
-        <div class="stat-sub">{{ scraperStatus.lastRun ? 'Last run: ' + formatDate(scraperStatus.lastRun) : 'Never run' }}</div>
+        <div class="stat-sub">{{ scraperStatus.lastScrapeTime ? 'Last run: ' + formatDate(scraperStatus.lastScrapeTime) : 'Never run' }}</div>
       </div>
     </div>
 
@@ -90,6 +90,7 @@ import { ref, onMounted } from 'vue'
 
 const cityStats = ref({})
 const neighborhoodStats = ref([])
+const neighborhoodCount = ref(0)
 const scraperStatus = ref({})
 const scraperRunning = ref(false)
 const loadingAnalytics = ref(false)
@@ -107,14 +108,19 @@ function formatDate(iso) {
 async function loadAnalytics() {
   loadingAnalytics.value = true
   try {
-    const [cityRes, nbRes] = await Promise.all([
-      fetch('/api/analytics/city-summary'),
+    const [cityRes, nbRes, nbCountRes] = await Promise.all([
+      fetch('/api/analytics/summary'),
       fetch('/api/analytics/neighborhoods'),
+      fetch('/api/neighborhoods'),
     ])
     if (cityRes.ok) cityStats.value = await cityRes.json()
     if (nbRes.ok) {
       const data = await nbRes.json()
       neighborhoodStats.value = Array.isArray(data) ? data : (data.neighborhoods ?? [])
+    }
+    if (nbCountRes.ok) {
+      const data = await nbCountRes.json()
+      neighborhoodCount.value = Array.isArray(data) ? data.length : 0
     }
   } catch (e) {
     error.value = 'Could not load analytics: ' + e.message
@@ -128,7 +134,7 @@ async function loadScraperStatus() {
     const res = await fetch('/api/scraper/status')
     if (res.ok) {
       scraperStatus.value = await res.json()
-      scraperRunning.value = scraperStatus.value.running ?? false
+      scraperRunning.value = scraperStatus.value.currentJobStatus === 'RUNNING'
     }
   } catch (_) {}
 }
