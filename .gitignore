@@ -1,0 +1,39 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+logs/
+
+# Node / Frontend
+node_modules/
+dist/
+.env.local
+.env.*.local
+
+# Docker volumes
+postgres_data/
+
+# macOS
+.DS_Store
+
+# Spring Boot dev
+spring-boot-devtools*.jar
