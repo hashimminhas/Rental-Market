@@ -41,3 +41,12 @@ messaging:
     alert-listing: alert.listing.queue
   routing-keys:
     listing-new: listing.new
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always

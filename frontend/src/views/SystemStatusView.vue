@@ -118,11 +118,15 @@ const DEFS = [
 ]
 
 const PATHS = {
-  gateway:'/api/actuator/health', scraper:'/api/scraper/actuator/health',
-  analytics:'/api/analytics/actuator/health', user:'/api/users/actuator/health',
-  alert:'/api/alerts/actuator/health', neighborhood:'/api/neighborhoods/actuator/health',
-  landlord:'/api/landlords/actuator/health', listing:'/api/listings/managed/actuator/health',
-  notification:'/api/notifications/actuator/health',
+  gateway:      '/actuator/health',
+  scraper:      '/api/health/scraper',
+  analytics:    '/api/health/analytics',
+  user:         '/api/health/user',
+  alert:        '/api/health/alert',
+  neighborhood: '/api/health/neighborhood',
+  landlord:     '/api/health/landlord',
+  listing:      '/api/health/listing',
+  notification: '/api/health/notification',
 }
 
 const services = ref(DEFS.map(d => ({...d, status:'unknown', label:'Checking…', ms:null})))
@@ -148,8 +152,13 @@ async function checkHealth(svc){
   try{
     const r=await fetch(PATHS[svc.id],{signal:AbortSignal.timeout(5000)})
     svc.ms=Date.now()-t
-    if(r.ok){ const d=await r.json().catch(()=>({})); svc.status=d.status==='DOWN'?'down':d.status==='OUT_OF_SERVICE'?'warn':'up'; svc.label=svc.status==='up'?'Operational':svc.status==='warn'?'Degraded':'Down' }
-    else { svc.status='down'; svc.label='HTTP '+r.status }
+    if(r.ok){
+      const d=await r.json().catch(()=>({}))
+      const st=(d.status||'').toUpperCase()
+      if(st==='UP'||st===''){svc.status='up';svc.label='Operational'}
+      else if(st==='DOWN'){svc.status='down';svc.label='Down'}
+      else{svc.status='warn';svc.label=st||'Degraded'}
+    } else { svc.status='down'; svc.label='HTTP '+r.status }
   }catch{ svc.status='down'; svc.label='Unreachable'; svc.ms=null }
 }
 

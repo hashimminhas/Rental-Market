@@ -1,26 +1,41 @@
 package com.uuriturg.scraper.scraper;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.uuriturg.scraper.domain.Listing;
 import com.uuriturg.scraper.domain.Source;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 @Component
 @Slf4j
 public class RendinScraper implements RentalScraper {
 
-    private static final String URL = "https://rendin.ee/et/apartments?location=Tartu";
-    private static final String BASE_URL = "https://rendin.ee";
-    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    private static final String API_URL =
+            "https://europe-west1-rendin-production.cloudfunctions.net/getSearchApartments";
+    private static final String SEARCH_URL = "https://rendin.ee/et";
+    private static final String USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    private static final int MAX_RESULTS = 50;
+
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public String getSourceName() {
@@ -30,40 +45,102 @@ public class RendinScraper implements RentalScraper {
     @Override
     public List<Listing> scrape() {
         List<Listing> listings = new ArrayList<>();
+
         try {
-            log.info("Starting Rendin scrape from {}", URL);
-            Document doc = Jsoup.connect(URL)
-                    .userAgent(USER_AGENT)
-                    .timeout(15000)
-                    .get();
+            String requestBody = buildSearchRequestBody();
+            log.info("Rendin: calling Firebase callable API {}", API_URL);
 
-            Elements items = doc.select("div[class*=listing], article[class*=property], div[class*=card][class*=apart]");
-            if (items.isEmpty()) {
-                items = doc.select("div[class*=result] div[class*=item], ul[class*=listing] li");
-            }
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(API_URL))
+                    .timeout(Duration.ofSeconds(20))
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .header("Origin", "https://rendin.ee")
+                    .header("Referer", SEARCH_URL)
+                    .header("User-Agent", USER_AGENT)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+                    .build();
 
-            log.info("Rendin: found {} elements", items.size());
+            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            log.info("Rendin API status: {}", resp.statusCode());
 
-            for (Element item : items) {
-                try {
-                    Listing l = parseItem(item);
-                    if (l != null) listings.add(l);
-                } catch (Exception e) {
-                    log.warn("Rendin: parse error — {}", e.getMessage());
+            if (resp.statusCode() == 200) {
+                JsonNode root = mapper.readTree(resp.body());
+                JsonNode items = root.path("result").path("foundApartments");
+
+                if (items.isArray()) {
+                    log.info("Rendin: {} apartments returned by API", items.size());
+                    for (JsonNode item : items) {
+                        try {
+                            Listing listing = parseApiItem(item);
+                            if (listing != null) listings.add(listing);
+                        } catch (Exception e) {
+                            log.warn("Rendin: parse error - {}", e.getMessage());
+                        }
+                    }
+                } else {
+                    log.warn("Rendin API response did not contain result.foundApartments");
                 }
+            } else {
+                log.warn("Rendin API returned status {} with body: {}", resp.statusCode(), resp.body());
             }
         } catch (Exception e) {
-            log.error("Rendin scrape failed: {}", e.getMessage());
+            log.error("Rendin API scrape failed: {}", e.getMessage());
         }
 
-        log.info("Rendin scrape complete — {} listings", listings.size());
-
-        if (listings.isEmpty()) {
-            log.info("Rendin returned 0 — generating seed data");
-            listings = generateSeedListings();
-        }
-
+        log.info("Rendin scrape complete - {} listings parsed", listings.size());
         return listings;
+    }
+
+    private String buildSearchRequestBody() throws Exception {
+        ObjectNode data = mapper.createObjectNode();
+        data.put("country", "EE");
+        data.put("city", "Tartu");
+        data.put("maxReturn", MAX_RESULTS);
+        data.set("districts", mapper.createArrayNode());
+
+        ArrayNode propertyTypes = mapper.createArrayNode();
+        propertyTypes.add("APARTMENT");
+        data.set("propertyTypes", propertyTypes);
+
+        ObjectNode body = mapper.createObjectNode();
+        body.set("data", data);
+        return mapper.writeValueAsString(body);
+    }
+
+    private Listing parseApiItem(JsonNode item) {
+        String city = item.path("city").asText("");
+        if (!"Tartu".equalsIgnoreCase(city)) return null;
+
+        String propertyType = item.path("propertyType").asText("");
+        if (!propertyType.isBlank() && !"APARTMENT".equalsIgnoreCase(propertyType)) return null;
+
+        String invitationCode = item.path("invitationCode").asText("");
+        String link = item.path("link").asText("");
+        if (invitationCode.isBlank()) {
+            invitationCode = extractInvitationCode(link);
+        }
+        if (invitationCode == null || invitationCode.isBlank()) return null;
+
+        String address = item.path("address").asText("").trim();
+        Integer rooms = item.path("rooms").isNumber() ? item.path("rooms").asInt() : null;
+        String title = (rooms != null ? rooms + "-toaline korter" : "Korter")
+                + " Tartus"
+                + (address.isBlank() ? "" : ", " + address);
+
+        return Listing.builder()
+                .source(Source.RENDIN)
+                .externalId("rendin-" + invitationCode)
+                .title(title)
+                .price(decimal(item.path("price")))
+                .size(decimal(item.path("objectArea")))
+                .rooms(rooms)
+                .neighborhood(detectNeighborhood(address + " " + title))
+                .street(address.isBlank() ? null : address)
+                .city("Tartu")
+                .url(link.isBlank() ? SEARCH_URL : link)
+                .synthetic(false)
+                .build();
     }
 
     public List<Listing> generateSeedListings() {
@@ -97,15 +174,15 @@ public class RendinScraper implements RentalScraper {
         for (int i = 0; i < data.length; i++) {
             String[] row = data[i];
             String neighborhood = row[0];
-            String street       = row[1];
-            int rooms           = Integer.parseInt(row[2]);
-            int minPrice        = Integer.parseInt(row[3]);
-            int maxPrice        = Integer.parseInt(row[4]);
-            int minSize         = Integer.parseInt(row[5]);
-            int maxSize         = Integer.parseInt(row[6]);
+            String street = row[1];
+            int rooms = Integer.parseInt(row[2]);
+            int minPrice = Integer.parseInt(row[3]);
+            int maxPrice = Integer.parseInt(row[4]);
+            int minSize = Integer.parseInt(row[5]);
+            int maxSize = Integer.parseInt(row[6]);
 
-            int price     = minPrice + rng.nextInt(maxPrice - minPrice + 1);
-            int size      = minSize  + rng.nextInt(maxSize  - minSize  + 1);
+            int price = minPrice + rng.nextInt(maxPrice - minPrice + 1);
+            int size = minSize + rng.nextInt(maxSize - minSize + 1);
             int streetNum = 1 + rng.nextInt(28);
 
             String title = rooms + "-toaline korter " + neighborhood + "s, " + street + " " + streetNum;
@@ -121,7 +198,8 @@ public class RendinScraper implements RentalScraper {
                     .neighborhood(neighborhood)
                     .street(street + " " + streetNum)
                     .city("Tartu")
-                    .url("https://rendin.ee/et/apartments/" + externalId)
+                    .url(SEARCH_URL)
+                    .synthetic(true)
                     .build());
         }
 
@@ -129,61 +207,34 @@ public class RendinScraper implements RentalScraper {
         return seed;
     }
 
-    private Listing parseItem(Element item) {
-        String href = item.select("a[href]").attr("href");
-        if (href == null || href.isBlank()) return null;
-
-        String url = href.startsWith("http") ? href : BASE_URL + href;
-        String externalId = extractId(href);
-        if (externalId == null) return null;
-
-        String title   = item.select("h2, h3, [class*=title], [class*=name], [class*=heading]").text();
-        BigDecimal price = parseNum(item.select("[class*=price], [class*=rent]").text());
-        BigDecimal size  = parseNum(item.select("[class*=area], [class*=size], [class*=sqm]").text());
-        Integer rooms    = parseRooms(item.select("[class*=room], [class*=bedroom]").text());
-        String address   = item.select("[class*=address], [class*=location]").text();
-
-        return Listing.builder()
-                .source(Source.RENDIN)
-                .externalId(externalId)
-                .title(title.isBlank() ? "Rendin listing" : title)
-                .price(price).size(size).rooms(rooms)
-                .neighborhood(detectNeighborhood(address + " " + title))
-                .street(address).city("Tartu").url(url)
-                .build();
+    private String extractInvitationCode(String link) {
+        if (link == null || link.isBlank()) return null;
+        int slash = link.lastIndexOf('/');
+        return slash >= 0 ? link.substring(slash + 1).trim() : link.trim();
     }
 
-    private String extractId(String href) {
-        String[] parts = href.split("/");
-        for (int i = parts.length - 1; i >= 0; i--) {
-            String seg = parts[i].replaceAll("[^0-9]", "");
-            if (seg.length() >= 4) return "rendin-" + seg;
+    private BigDecimal decimal(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) return null;
+        if (node.isNumber()) return node.decimalValue();
+        String text = node.asText("");
+        if (text.isBlank()) return null;
+        try {
+            return new BigDecimal(text.replace(",", "."));
+        } catch (NumberFormatException e) {
+            return null;
         }
-        return null;
-    }
-
-    private BigDecimal parseNum(String text) {
-        if (text == null || text.isBlank()) return null;
-        try {
-            String c = text.replaceAll("[^0-9.,]", "").replace(",", ".");
-            if (c.isBlank()) return null;
-            return new BigDecimal(c.split("\\.")[0]);
-        } catch (Exception e) { return null; }
-    }
-
-    private Integer parseRooms(String text) {
-        if (text == null || text.isBlank()) return null;
-        try {
-            String d = text.replaceAll("[^0-9]", "");
-            return d.isBlank() ? null : Integer.parseInt(d.substring(0, 1));
-        } catch (Exception e) { return null; }
     }
 
     private String detectNeighborhood(String text) {
         if (text == null) return null;
-        String lower = text.toLowerCase();
-        for (String n : new String[]{"kesklinn","ülejõe","tammelinn","annelinn","karlova","veeriku","tähtvere","supilinn","ränilinn","maarjamõisa"}) {
-            if (lower.contains(n)) return n.substring(0, 1).toUpperCase() + n.substring(1);
+        String lower = text.toLowerCase(Locale.ROOT);
+        for (String n : new String[]{
+                "kesklinn", "ülejõe", "tammelinn", "annelinn", "karlova",
+                "veeriku", "tähtvere", "supilinn", "ränilinn", "maarjamõisa"
+        }) {
+            if (lower.contains(n)) {
+                return n.substring(0, 1).toUpperCase(Locale.ROOT) + n.substring(1);
+            }
         }
         return null;
     }

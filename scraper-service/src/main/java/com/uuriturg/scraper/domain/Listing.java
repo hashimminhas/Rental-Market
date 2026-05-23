@@ -54,6 +54,8 @@ public class Listing {
 
     private Boolean isActive;
 
+    private Boolean synthetic;
+
     private LocalDateTime createdAt;
 
     @PrePersist
@@ -61,6 +63,7 @@ public class Listing {
         if (createdAt == null) createdAt = LocalDateTime.now();
         if (isActive == null) isActive = true;
         if (scrapedAt == null) scrapedAt = LocalDateTime.now();
+        if (synthetic == null) synthetic = false;
         computePricePerSqm();
     }
 

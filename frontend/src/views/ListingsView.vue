@@ -84,7 +84,10 @@
     <div v-else-if="view==='grid'" class="listing-grid">
       <div v-for="l in paged" :key="l.listingId" class="lcard">
         <div class="lcard-top">
-          <span :class="['badge', srcBadge(l.source)]">{{ srcLabel(l.source) }}</span>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span :class="['badge', srcBadge(l.source)]">{{ srcLabel(l.source) }}</span>
+            <span v-if="l.synthetic" class="badge badge-demo" title="Demo data — not a real listing">Demo</span>
+          </div>
           <button class="btn-save" @click="toggleSave(l)" :title="saved.has(l.listingId)?'Unsave':'Save'">
             <svg width="14" height="14" :fill="saved.has(l.listingId)?'var(--primary)':'none'" :stroke="saved.has(l.listingId)?'var(--primary)':'#94a3b8'" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
           </button>
@@ -102,7 +105,9 @@
         </div>
         <div class="lcard-foot">
           <span class="lcard-age">{{ ago(l.scrapedAt) }}</span>
-          <a :href="l.url||'#'" target="_blank" class="btn btn-primary btn-sm">View details</a>
+          <a :href="l.url||'#'" target="_blank" :class="['btn','btn-sm', l.synthetic ? 'btn-outline' : 'btn-primary']">
+            {{ l.synthetic ? 'Search on site' : 'View listing' }}
+          </a>
         </div>
       </div>
     </div>
@@ -121,7 +126,14 @@
             <td style="font-weight:600;color:var(--primary)">€{{ fmt(l.price) }}</td>
             <td>{{ l.pricePerSqm ? '€'+fmtD(l.pricePerSqm):'—' }}</td>
             <td style="color:var(--muted);font-size:.8rem">{{ ago(l.scrapedAt) }}</td>
-            <td><a :href="l.url||'#'" target="_blank" class="btn btn-primary btn-sm">View</a></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span v-if="l.synthetic" class="badge badge-demo">Demo</span>
+                <a :href="l.url||'#'" target="_blank" :class="['btn','btn-sm', l.synthetic ? 'btn-outline' : 'btn-primary']">
+                  {{ l.synthetic ? 'Search' : 'View' }}
+                </a>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -258,5 +270,6 @@ onMounted(load)
 .lcard-foot  { display:flex; align-items:center; justify-content:space-between; margin-top:auto; padding-top:4px; }
 .lcard-age   { font-size:.75rem; color:var(--light); }
 
-.td-clip { max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.85rem; }
+.td-clip    { max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.85rem; }
+.badge-demo { background:#fef3c7; color:#92400e; font-size:10px; border:1px solid #fde68a; }
 </style>

@@ -64,6 +64,11 @@ public class ListingServiceImpl implements ListingService {
             toUpdate.setTitle(incoming.getTitle());
             toUpdate.setSize(incoming.getSize());
             toUpdate.setRooms(incoming.getRooms());
+            toUpdate.setUrl(incoming.getUrl());
+            toUpdate.setNeighborhood(incoming.getNeighborhood());
+            toUpdate.setStreet(incoming.getStreet());
+            toUpdate.setCity(incoming.getCity());
+            toUpdate.setSynthetic(incoming.getSynthetic());
             listingRepository.save(toUpdate);
             return false;
         }
@@ -99,6 +104,7 @@ public class ListingServiceImpl implements ListingService {
                 .scrapedAt(listing.getScrapedAt())
                 .isActive(listing.getIsActive())
                 .createdAt(listing.getCreatedAt())
+                .synthetic(Boolean.TRUE.equals(listing.getSynthetic()))
                 .build();
     }
 }

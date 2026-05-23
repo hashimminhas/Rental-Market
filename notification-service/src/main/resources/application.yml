@@ -51,3 +51,12 @@ messaging:
   routing-keys:
     listing-claimed: listing.claimed
     review-posted: review.posted
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always

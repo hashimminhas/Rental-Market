@@ -33,3 +33,12 @@ user:
 analytics:
   service:
     base-url: ${ANALYTICS_SERVICE_URL:http://localhost:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
