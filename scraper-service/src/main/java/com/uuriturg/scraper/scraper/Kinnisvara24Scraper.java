@@ -1,18 +1,19 @@
 package com.uuriturg.scraper.scraper;
 
-import com.uuriturg.scraper.domain.Listing;
-import com.uuriturg.scraper.domain.Source;
-import lombok.extern.slf4j.Slf4j;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import com.uuriturg.scraper.domain.Listing;
+import com.uuriturg.scraper.domain.Source;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
@@ -59,74 +60,6 @@ public class Kinnisvara24Scraper implements RentalScraper {
         log.info("Kinnisvara24 scrape complete — {} listings", listings.size());
 
         return listings;
-    }
-
-    public List<Listing> generateSeedListings() {
-        Random rng = new Random(77);
-        List<Listing> seed = new ArrayList<>();
-
-        String[][] data = {
-            {"Tammelinn",    "Tammela",      "3", "680", "980",  "68", "92"},
-            {"Tammelinn",    "Näituse",      "2", "550", "800",  "52", "72"},
-            {"Tammelinn",    "Filosoofi",    "1", "420", "600",  "36", "50"},
-            {"Tammelinn",    "Lepp",         "4", "900", "1300", "82", "115"},
-            {"Tammelinn",    "Raatuse",      "2", "580", "850",  "55", "75"},
-            {"Karlova",      "Kastani",      "2", "600", "860",  "54", "74"},
-            {"Karlova",      "Tähe",         "3", "740", "1080", "70", "95"},
-            {"Karlova",      "Aleksandri",   "1", "440", "640",  "35", "50"},
-            {"Karlova",      "Roosi",        "2", "570", "820",  "52", "70"},
-            {"Karlova",      "Puiestee",     "3", "760", "1100", "72", "98"},
-            {"Veeriku",      "Veeriku",      "3", "620", "900",  "67", "92"},
-            {"Veeriku",      "Laane",        "2", "500", "720",  "52", "72"},
-            {"Veeriku",      "Männiku",      "4", "780", "1150", "88", "118"},
-            {"Tähtvere",     "Tähtvere",     "2", "570", "820",  "57", "78"},
-            {"Tähtvere",     "Kadaka",       "3", "700", "1000", "70", "98"},
-            {"Tähtvere",     "Lepiku",       "1", "420", "600",  "38", "52"},
-            {"Kesklinn",     "Küütri",       "2", "650", "980",  "48", "72"},
-            {"Kesklinn",     "Raekoja",      "3", "850", "1250", "68", "92"},
-            {"Kesklinn",     "Ülikooli",     "1", "480", "680",  "32", "50"},
-            {"Kesklinn",     "Vallikraavi",  "2", "640", "920",  "52", "70"},
-            {"Annelinn",     "Kaunase",      "2", "360", "540",  "50", "70"},
-            {"Annelinn",     "Mõisavahe",    "3", "440", "650",  "62", "88"},
-            {"Supilinn",     "Oa",           "2", "600", "880",  "54", "74"},
-            {"Supilinn",     "Kartuli",      "1", "440", "640",  "37", "52"},
-            {"Maarjamõisa",  "Maarjamõisa",  "2", "540", "790",  "57", "80"},
-        };
-
-        for (int i = 0; i < data.length; i++) {
-            String[] row = data[i];
-            String neighborhood = row[0];
-            String street       = row[1];
-            int rooms           = Integer.parseInt(row[2]);
-            int minPrice        = Integer.parseInt(row[3]);
-            int maxPrice        = Integer.parseInt(row[4]);
-            int minSize         = Integer.parseInt(row[5]);
-            int maxSize         = Integer.parseInt(row[6]);
-
-            int price     = minPrice + rng.nextInt(maxPrice - minPrice + 1);
-            int size      = minSize  + rng.nextInt(maxSize  - minSize  + 1);
-            int streetNum = 1 + rng.nextInt(30);
-
-            String title = rooms + "-toaline korter " + neighborhood + "s, " + street + " " + streetNum;
-            String externalId = "k24-" + (20000 + i);
-
-            seed.add(Listing.builder()
-                    .source(Source.KINNISVARA24)
-                    .externalId(externalId)
-                    .title(title)
-                    .price(BigDecimal.valueOf(price))
-                    .size(BigDecimal.valueOf(size))
-                    .rooms(rooms)
-                    .neighborhood(neighborhood)
-                    .street(street + " " + streetNum)
-                    .city("Tartu")
-                    .url("https://www.kinnisvara24.ee/et/kinnisvaraotsing?liik=uuri&kategooria=korter&asukoht=Tartu")
-                    .synthetic(true)
-                    .build());
-        }
-
-        log.info("Generated {} Kinnisvara24 seed listings", seed.size());
-        return seed;
     }
 
     private Listing parseItem(Element item) {

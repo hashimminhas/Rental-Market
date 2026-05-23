@@ -53,6 +53,9 @@ public class ListingResponse {
     @Schema(description = "Direct URL to the listing on the source portal", example = "https://www.kv.ee/kinnisvara/98765")
     private String url;
 
+    @Schema(description = "Thumbnail image URL for the listing")
+    private String imageUrl;
+
     @Schema(description = "Timestamp when this listing was last scraped")
     private LocalDateTime scrapedAt;
 

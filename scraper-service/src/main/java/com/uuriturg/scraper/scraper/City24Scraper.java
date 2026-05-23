@@ -1,12 +1,5 @@
 package com.uuriturg.scraper.scraper;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.uuriturg.scraper.domain.Listing;
-import com.uuriturg.scraper.domain.Source;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,15 +8,28 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uuriturg.scraper.domain.Listing;
+import com.uuriturg.scraper.domain.Source;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
 public class City24Scraper implements RentalScraper {
 
     private static final String API_URL =
-            "https://api.city24.ee/et_EE/search/realties?tsType=rent&unitType=Apartment&itemsPerPage=200";
+            "https://api.city24.ee/et_EE/search/realties?tsType=rent&unitType=Apartment&itemsPerPage=200&address%5Bcounty%5D%5B0%5D=20269";
     private static final String LISTING_BASE = "https://www.city24.ee/en/real-estate/";
+    private static final String[] IMAGE_FORMATS = {
+        "24", "25", "18",
+        "em800x600c", "em550x400c", "800x600c", "400x300c", "em"
+    };
+    private static volatile String IMAGE_FORMAT = null;
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -57,6 +63,10 @@ public class City24Scraper implements RentalScraper {
                 JsonNode items = root.isArray() ? root : root.path("realties");
                 if (items.isMissingNode()) items = root;
 
+                if (IMAGE_FORMAT == null) {
+                    discoverImageFormat(items);
+                }
+
                 log.info("City24: {} total items from API", items.size());
                 for (JsonNode item : items) {
                     try {
@@ -75,13 +85,68 @@ public class City24Scraper implements RentalScraper {
         return listings;
     }
 
+    private static String resolveImageUrl(JsonNode n) {
+        if (IMAGE_FORMAT == null) return null;
+        JsonNode mainImage = n.path("main_image").path("url");
+        if (!mainImage.isMissingNode() && !mainImage.isNull()) {
+            return mainImage.asText("").replace("{fmt:em}", IMAGE_FORMAT);
+        }
+        JsonNode images = n.path("images");
+        if (images.isArray() && images.size() > 0) {
+            return images.get(0).asText("").replace("{fmt:em}", IMAGE_FORMAT);
+        }
+        return null;
+    }
+
+    private void discoverImageFormat(JsonNode items) {
+        String candidate = findCandidateImageUrl(items);
+        if (candidate == null || candidate.isBlank()) return;
+
+        for (String fmt : IMAGE_FORMATS) {
+            String url = candidate.replace("{fmt:em}", fmt);
+            if (probeImageUrl(url)) {
+                IMAGE_FORMAT = fmt;
+                log.info("City24 image format set to {}", fmt);
+                return;
+            }
+        }
+    }
+
+    private String findCandidateImageUrl(JsonNode items) {
+        if (items == null || !items.isArray()) return null;
+        for (JsonNode item : items) {
+            JsonNode main = item.path("main_image").path("url");
+            if (!main.isMissingNode() && !main.isNull() && !main.asText("").isBlank()) {
+                return main.asText("");
+            }
+            JsonNode images = item.path("images");
+            if (images.isArray() && images.size() > 0) {
+                String url = images.get(0).asText("");
+                if (!url.isBlank()) return url;
+            }
+        }
+        return null;
+    }
+
+    private boolean probeImageUrl(String url) {
+        try {
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(10))
+                    .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .build();
+
+            HttpResponse<Void> resp = http.send(req, HttpResponse.BodyHandlers.discarding());
+            return resp.statusCode() == 200;
+        } catch (Exception e) {
+            log.debug("City24 image HEAD failed for {}: {}", url, e.getMessage());
+            return false;
+        }
+    }
+
     private Listing parseApiItem(JsonNode n) {
         JsonNode addr = n.path("address");
-        String county = addr.path("county_name").asText("");
-        String city   = addr.path("city_name").asText("");
-
-        // Filter: only Tartu area
-        if (!county.contains("Tartu") && !city.equalsIgnoreCase("Tartu")) return null;
 
         long id = n.path("id").asLong(0);
         if (id == 0) return null;
@@ -96,7 +161,7 @@ public class City24Scraper implements RentalScraper {
         String fullStreet  = (street + (houseNumber.isBlank() ? "" : " " + houseNumber)).trim();
 
         String district    = addr.path("district_name").asText("").trim();
-        String neighborhood = district.isBlank() ? detectNeighborhood(fullStreet + " " + city) : capitalize(district);
+        String neighborhood = district.isBlank() ? detectNeighborhood(fullStreet) : capitalize(district);
 
         double priceVal = n.path("price").asDouble(0);
         double sizeVal  = n.path("property_size").asDouble(0);
@@ -116,48 +181,8 @@ public class City24Scraper implements RentalScraper {
                 .street(fullStreet.isBlank() ? null : fullStreet)
                 .city("Tartu")
                 .url(url)
+                .imageUrl(resolveImageUrl(n))
                 .build();
-    }
-
-    public List<Listing> generateSeedListings() {
-        Random rng = new Random(55);
-        List<Listing> seed = new ArrayList<>();
-        String[][] data = {
-            {"Kesklinn",    "Küütri",       "2", "680", "980",  "50", "72"},
-            {"Kesklinn",    "Raekoja",      "1", "520", "750",  "34", "50"},
-            {"Tammelinn",   "Tammela",      "3", "720", "1050", "68", "94"},
-            {"Tammelinn",   "Näituse",      "2", "580", "840",  "54", "76"},
-            {"Karlova",     "Kastani",      "2", "600", "870",  "55", "77"},
-            {"Karlova",     "Tähe",         "1", "440", "640",  "36", "52"},
-            {"Annelinn",    "Kaunase",      "2", "360", "540",  "52", "72"},
-            {"Annelinn",    "Mõisavahe",    "3", "450", "660",  "64", "90"},
-            {"Supilinn",    "Oa",           "2", "640", "930",  "55", "77"},
-            {"Veeriku",     "Veeriku",      "2", "520", "760",  "55", "78"},
-            {"Tähtvere",    "Tähtvere",     "2", "560", "820",  "58", "80"},
-            {"Maarjamõisa", "Maarjamõisa",  "2", "550", "800",  "57", "80"},
-        };
-        for (int i = 0; i < data.length; i++) {
-            String[] r = data[i];
-            int price = Integer.parseInt(r[3]) + rng.nextInt(Integer.parseInt(r[4]) - Integer.parseInt(r[3]) + 1);
-            int size  = Integer.parseInt(r[5]) + rng.nextInt(Integer.parseInt(r[6]) - Integer.parseInt(r[5]) + 1);
-            int rooms = Integer.parseInt(r[2]);
-            int num   = 1 + rng.nextInt(28);
-            seed.add(Listing.builder()
-                    .source(Source.CITY24)
-                    .externalId("city24-" + (10000 + i))
-                    .title(rooms + "-toaline korter " + r[0] + "s, " + r[1] + " " + num)
-                    .price(BigDecimal.valueOf(price))
-                    .size(BigDecimal.valueOf(size))
-                    .rooms(rooms)
-                    .neighborhood(r[0])
-                    .street(r[1] + " " + num)
-                    .city("Tartu")
-                    .url("https://www.city24.ee/en/real-estate-search/apartments-for-rent/tartu")
-                    .synthetic(true)
-                    .build());
-        }
-        log.info("Generated {} City24 seed listings", seed.size());
-        return seed;
     }
 
     private String detectNeighborhood(String text) {

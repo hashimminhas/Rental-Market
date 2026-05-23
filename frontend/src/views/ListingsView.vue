@@ -83,7 +83,19 @@
     <!-- Grid view -->
     <div v-else-if="view==='grid'" class="listing-grid">
       <div v-for="l in paged" :key="l.listingId" class="lcard">
-        <div class="lcard-top">
+        <div v-if="showImage(l)" class="lcard-media">
+          <img :src="l.imageUrl" :alt="l.title||''" class="lcard-media-img" loading="lazy" @error="markImgError(l)">
+          <div class="lcard-media-overlay">
+            <div class="lcard-media-badges">
+              <span :class="['badge', srcBadge(l.source)]">{{ srcLabel(l.source) }}</span>
+              <span v-if="l.synthetic" class="badge badge-demo">Demo</span>
+            </div>
+            <button class="btn-save lcard-save-over" @click="toggleSave(l)" :title="saved.has(l.listingId)?'Unsave':'Save'">
+              <svg width="14" height="14" :fill="saved.has(l.listingId)?'var(--primary)':'none'" :stroke="saved.has(l.listingId)?'var(--primary)':'#fff'" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div v-else class="lcard-top">
           <div style="display:flex;align-items:center;gap:5px">
             <span :class="['badge', srcBadge(l.source)]">{{ srcLabel(l.source) }}</span>
             <span v-if="l.synthetic" class="badge badge-demo" title="Demo data — not a real listing">Demo</span>
@@ -159,6 +171,7 @@ const view     = ref('grid')
 const pg       = ref(1)
 const SIZE     = 12
 const saved    = ref(new Set())
+const imgError = ref(new Set())
 
 const q       = ref('')
 const fNeigh  = ref('')
@@ -208,6 +221,9 @@ function ago(ts){
   return Math.floor(h/24)+'d ago'
 }
 function toggleSave(l){ const s=new Set(saved.value); s.has(l.listingId)?s.delete(l.listingId):s.add(l.listingId); saved.value=s }
+function imgKey(l){ return String(l.listingId || l.externalId || l.url || l.title || '') }
+function showImage(l){ return !!(l.imageUrl && !imgError.value.has(imgKey(l))) }
+function markImgError(l){ const s=new Set(imgError.value); s.add(imgKey(l)); imgError.value=s }
 
 async function load(){
   loading.value=true; error.value=null
@@ -255,9 +271,18 @@ onMounted(load)
 .lcard {
   background:var(--card); border:1px solid var(--border); border-radius:var(--r);
   padding:16px; display:flex; flex-direction:column; gap:9px;
-  box-shadow:var(--shadow); transition:box-shadow .2s,border-color .2s;
+  box-shadow:var(--shadow); transition:box-shadow .2s,border-color .2s; overflow:hidden;
 }
 .lcard:hover { box-shadow:0 4px 16px rgba(0,0,0,.1); border-color:var(--primary); }
+
+.lcard-media {
+  position:relative; height:170px; flex-shrink:0;
+  margin:-16px -16px 0; background:#0f172a;
+}
+.lcard-media-img { width:100%; height:100%; object-fit:cover; display:block; }
+.lcard-media-overlay { position:absolute; inset:0; pointer-events:none; }
+.lcard-media-badges { position:absolute; top:10px; left:10px; display:flex; gap:5px; }
+.lcard-save-over  { position:absolute; top:8px; right:10px; background:rgba(0,0,0,.35); border:none; border-radius:6px; padding:5px; cursor:pointer; line-height:0; pointer-events:auto; }
 
 .lcard-top   { display:flex; justify-content:space-between; align-items:center; }
 .btn-save    { background:none; border:none; cursor:pointer; padding:2px; }

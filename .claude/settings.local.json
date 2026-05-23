@@ -5,7 +5,10 @@
       "Bash(mvn test *)",
       "Bash(mvn package *)",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Hashim Ali\\\\Desktop\\\\uuriturg\\\\frontend\\\\src\" -Recurse | ForEach-Object { $_.FullName })",
-      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Hashim Ali\\\\Desktop\\\\uuriturg\\\\frontend\\\\src\" -Recurse | ForEach-Object { $_.Name })"
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Hashim Ali\\\\Desktop\\\\uuriturg\\\\frontend\\\\src\" -Recurse | ForEach-Object { $_.Name })",
+      "Bash(curl -s \"https://api.city24.ee/et_EE/search/realties?tsType=rent&unitType=Apartment&itemsPerPage=200&address%5Bcounty%5D%5B0%5D=20269\")",
+      "Bash(xargs grep -l \"ddl-auto\")",
+      "Bash(curl -sf http://localhost:5173)"
     ]
   }
 }
