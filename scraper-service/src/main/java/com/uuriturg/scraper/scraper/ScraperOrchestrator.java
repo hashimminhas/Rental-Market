@@ -21,6 +21,9 @@ public class ScraperOrchestrator {
 
     private final KvEeScraper kvEeScraper;
     private final City24Scraper city24Scraper;
+    private final Kinnisvara24Scraper kinnisvara24Scraper;
+    private final RendinScraper rendinScraper;
+    private final MaametScraper maametScraper;
     private final ListingService listingService;
     private final ScrapeJobService scrapeJobService;
     private final ListingEventPublisher eventPublisher;
@@ -74,6 +77,54 @@ public class ScraperOrchestrator {
                         eventPublisher.publishListingNew(listing);
                     } catch (Exception e) {
                         log.warn("Failed to publish listing.new event for City24 listing {}: {}",
+                                listing.getExternalId(), e.getMessage());
+                    }
+                }
+            }
+
+            // --- Kinnisvara24 ---
+            List<Listing> k24Listings = kinnisvara24Scraper.scrape();
+            totalFound += k24Listings.size();
+            for (Listing listing : k24Listings) {
+                boolean isNew = listingService.saveOrUpdate(listing);
+                if (isNew) {
+                    totalNew++;
+                    try {
+                        eventPublisher.publishListingNew(listing);
+                    } catch (Exception e) {
+                        log.warn("Failed to publish listing.new event for Kinnisvara24 listing {}: {}",
+                                listing.getExternalId(), e.getMessage());
+                    }
+                }
+            }
+
+            // --- Rendin ---
+            List<Listing> rendinListings = rendinScraper.scrape();
+            totalFound += rendinListings.size();
+            for (Listing listing : rendinListings) {
+                boolean isNew = listingService.saveOrUpdate(listing);
+                if (isNew) {
+                    totalNew++;
+                    try {
+                        eventPublisher.publishListingNew(listing);
+                    } catch (Exception e) {
+                        log.warn("Failed to publish listing.new event for Rendin listing {}: {}",
+                                listing.getExternalId(), e.getMessage());
+                    }
+                }
+            }
+
+            // --- Maa-amet ---
+            List<Listing> maametListings = maametScraper.scrape();
+            totalFound += maametListings.size();
+            for (Listing listing : maametListings) {
+                boolean isNew = listingService.saveOrUpdate(listing);
+                if (isNew) {
+                    totalNew++;
+                    try {
+                        eventPublisher.publishListingNew(listing);
+                    } catch (Exception e) {
+                        log.warn("Failed to publish listing.new event for Maa-amet listing {}: {}",
                                 listing.getExternalId(), e.getMessage());
                     }
                 }

@@ -1,119 +1,112 @@
 <template>
-  <div>
-    <h1 class="page-title">Alerts</h1>
-    <p class="page-subtitle">Get notified when a new listing matches your criteria</p>
-
-    <div v-if="globalError" class="error">{{ globalError }}</div>
-
-    <div style="display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start;">
-
-      <!-- Create alert form -->
-      <div class="card">
-        <strong style="font-size:1rem;display:block;margin-bottom:14px;">Create Alert</strong>
-        <div class="form-group">
-          <label>User ID (UUID)</label>
-          <input class="form-control" v-model="form.userId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-        </div>
-        <div class="form-group">
-          <label>Neighborhood</label>
-          <select class="form-control" v-model="form.neighborhood">
-            <option value="">Any neighborhood</option>
-            <option v-for="n in neighborhoods" :key="n" :value="n">{{ n }}</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Max Price (€)</label>
-          <input class="form-control" type="number" v-model.number="form.maxPrice" placeholder="e.g. 700" min="0" />
-        </div>
-        <div class="form-group">
-          <label>Min Size (m²)</label>
-          <input class="form-control" type="number" v-model.number="form.minSize" placeholder="e.g. 25" min="0" />
-        </div>
-        <div class="form-group">
-          <label>Min Rooms</label>
-          <input class="form-control" type="number" v-model.number="form.minRooms" placeholder="e.g. 1" min="1" />
-        </div>
-        <div v-if="formError" class="error" style="margin-bottom:10px;">{{ formError }}</div>
-        <div v-if="formSuccess" style="color:#155724;font-size:0.85rem;margin-bottom:10px;">{{ formSuccess }}</div>
-        <button class="btn btn-primary" :disabled="saving" @click="createAlert" style="width:100%;">
-          {{ saving ? 'Creating…' : 'Create Alert' }}
-        </button>
-      </div>
-
-      <!-- Alerts table -->
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <strong style="font-size:1rem;">All Alerts</strong>
-          <button class="btn btn-outline btn-sm" @click="loadAlerts">Refresh</button>
-        </div>
-        <div v-if="loadingAlerts" class="loading" style="padding:20px;">Loading…</div>
-        <div v-else-if="alerts.length === 0" class="empty" style="padding:20px;">No alerts registered yet.</div>
-        <div v-else class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Neighborhood</th>
-                <th>Max Price</th>
-                <th>Min Size</th>
-                <th>Min Rooms</th>
-                <th>Status</th>
-                <th>Matches</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="a in alerts" :key="a.alertRuleId || a.id">
-                <td>{{ a.neighborhood || 'Any' }}</td>
-                <td>{{ a.maxPrice ? '€' + a.maxPrice : '—' }}</td>
-                <td>{{ a.minSize ? a.minSize + ' m²' : '—' }}</td>
-                <td>{{ a.minRooms ?? '—' }}</td>
-                <td>
-                  <span :class="a.active !== false ? 'badge badge-green' : 'badge badge-gray'">
-                    {{ a.active !== false ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-                <td>
-                  <button class="btn btn-outline btn-sm" @click="loadMatches(a)">
-                    View matches
-                  </button>
-                </td>
-                <td>
-                  <button v-if="a.active !== false"
-                    class="btn btn-danger btn-sm" @click="deactivate(a)">
-                    Deactivate
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+  <div class="page">
+    <div class="page-hd">
+      <div>
+        <h1 class="page-title">Price Alerts</h1>
+        <p class="page-sub">Get notified when new listings match your criteria.</p>
       </div>
     </div>
 
-    <!-- Matches panel -->
-    <div v-if="selectedAlert" class="card" style="margin-top:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <strong>Matches for alert — {{ selectedAlert.neighborhood || 'Any neighborhood' }}, max €{{ selectedAlert.maxPrice ?? '∞' }}</strong>
-        <button class="btn btn-outline btn-sm" @click="selectedAlert = null">Close</button>
+    <div class="alerts-layout">
+
+      <!-- Create / Edit form -->
+      <div class="card form-card">
+        <div class="form-card-title">{{ editId ? 'Edit alert' : 'Create new alert' }}</div>
+        <form @submit.prevent="save">
+          <div class="form-group">
+            <label class="form-label">Alert name *</label>
+            <input v-model="f.name" class="form-input" placeholder="e.g. Budget flat in Karlova" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Neighborhood</label>
+            <select v-model="f.neighborhood" class="form-select">
+              <option value="">Any neighborhood</option>
+              <option v-for="n in HOODS" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label class="form-label">Min price (€)</label>
+              <input v-model.number="f.minPrice" type="number" class="form-input" placeholder="0" min="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max price (€)</label>
+              <input v-model.number="f.maxPrice" type="number" class="form-input" placeholder="1500" min="0" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label class="form-label">Min size (m²)</label>
+              <input v-model.number="f.minSize" type="number" class="form-input" placeholder="0" min="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Rooms</label>
+              <select v-model.number="f.rooms" class="form-select">
+                <option :value="null">Any</option>
+                <option :value="1">1</option>
+                <option :value="2">2</option>
+                <option :value="3">3</option>
+                <option :value="4">4+</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notification email</label>
+            <input v-model="f.email" type="email" class="form-input" placeholder="you@example.com" />
+          </div>
+          <div v-if="formErr" style="color:#dc2626;font-size:.82rem;margin-bottom:8px">{{ formErr }}</div>
+          <div v-if="formOk"  style="color:#16a34a;font-size:.82rem;margin-bottom:8px">{{ formOk }}</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button v-if="editId" type="button" class="btn btn-ghost btn-sm" @click="cancelEdit">Cancel</button>
+            <button type="submit" class="btn btn-primary" :disabled="saving">{{ saving?'Saving…':editId?'Update alert':'Create alert' }}</button>
+          </div>
+        </form>
       </div>
-      <div v-if="loadingMatches" class="loading" style="padding:20px;">Loading matches…</div>
-      <div v-else-if="matches.length === 0" class="empty" style="padding:20px;">No matches for this alert yet.</div>
-      <div v-else class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Listing ID</th><th>Price</th><th>Size</th><th>Rooms</th><th>Neighborhood</th><th>Matched At</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="m in matches" :key="m.matchId || m.id">
-              <td style="font-size:0.78rem;color:#6c757d;">{{ (m.listingId || m.scrapedListingId || '—').toString().slice(0, 8) }}…</td>
-              <td>€{{ m.price ?? '—' }}</td>
-              <td>{{ m.size ?? '—' }} m²</td>
-              <td>{{ m.rooms ?? '—' }}</td>
-              <td>{{ m.neighborhood ?? '—' }}</td>
-              <td>{{ formatDate(m.matchedAt || m.createdAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
+
+      <!-- Alert list -->
+      <div class="alerts-col">
+        <div v-if="loading" class="card" style="padding:40px">
+          <div class="state-loading" style="padding:0"><div class="spinner"></div><span>Loading alerts…</span></div>
+        </div>
+        <div v-else-if="alerts.length===0" class="card" style="padding:48px">
+          <div class="state-empty" style="padding:0">
+            <svg width="36" height="36" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <p>No alerts yet. Create your first rule!</p>
+          </div>
+        </div>
+        <div v-else class="alert-list">
+          <div v-for="a in alerts" :key="a.alertId" :class="['acard', !a.isActive&&'acard--off']">
+            <div class="acard-hd">
+              <span class="acard-name">{{ a.name||'Alert' }}</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <label class="toggle" :title="a.isActive?'Disable':'Enable'">
+                  <input type="checkbox" :checked="a.isActive" @change="toggleAlert(a)"/>
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </label>
+                <button class="btn btn-icon" @click="startEdit(a)" title="Edit">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="btn btn-icon" @click="del(a)" title="Delete" style="color:#dc2626">
+                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="acard-chips">
+              <span class="chip" v-if="a.neighborhood">{{ a.neighborhood }}</span>
+              <span class="chip" v-if="a.minPrice||a.maxPrice">€{{ a.minPrice||0 }} – {{ a.maxPrice?'€'+a.maxPrice:'∞' }}</span>
+              <span class="chip" v-if="a.minSize">≥ {{ a.minSize }} m²</span>
+              <span class="chip" v-if="a.rooms">{{ a.rooms }}{{ a.rooms>=4?'+':'' }} rooms</span>
+              <span class="chip" v-if="!a.neighborhood&&!a.minPrice&&!a.maxPrice&&!a.rooms">All listings</span>
+            </div>
+            <div class="acard-ft">
+              <span v-if="a.email" style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted)">
+                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                {{ a.email }}
+              </span>
+              <span :class="['badge', a.isActive?'badge-green':'badge-gray']">{{ a.isActive?'Active':'Paused' }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -122,113 +115,76 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const alerts = ref([])
-const matches = ref([])
-const neighborhoods = ref([])
-const loadingAlerts = ref(false)
-const loadingMatches = ref(false)
-const saving = ref(false)
-const globalError = ref('')
-const formError = ref('')
-const formSuccess = ref('')
-const selectedAlert = ref(null)
+const HOODS = ['Kesklinn','Ülejõe','Tammelinn','Annelinn','Karlova','Veeriku','Tähtvere','Supilinn','Ränilinn','Maarjamõisa']
 
-const form = ref({ userId: '', neighborhood: '', maxPrice: null, minSize: null, minRooms: null })
+const alerts  = ref([])
+const loading = ref(true)
+const saving  = ref(false)
+const editId  = ref(null)
+const formErr = ref('')
+const formOk  = ref('')
 
-function formatDate(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleString('et-EE', { dateStyle: 'short', timeStyle: 'short' })
+const blank = () => ({name:'',neighborhood:'',minPrice:null,maxPrice:null,minSize:null,rooms:null,email:''})
+const f = ref(blank())
+
+async function load(){
+  loading.value=true
+  try{ const r=await fetch('/api/alerts'); if(r.ok) alerts.value=await r.json() }
+  catch{} finally{ loading.value=false }
 }
 
-async function loadAlerts() {
-  loadingAlerts.value = true
-  try {
-    const res = await fetch('/api/alerts')
-    if (res.ok) {
-      const data = await res.json()
-      alerts.value = Array.isArray(data) ? data : []
-    }
-  } catch (e) {
-    globalError.value = 'Could not load alerts: ' + e.message
-  } finally {
-    loadingAlerts.value = false
-  }
+async function save(){
+  saving.value=true; formErr.value=''; formOk.value=''
+  const body={name:f.value.name,neighborhood:f.value.neighborhood||null,minPrice:f.value.minPrice||null,maxPrice:f.value.maxPrice||null,minSize:f.value.minSize||null,rooms:f.value.rooms||null,email:f.value.email||null}
+  try{
+    const url = editId.value ? `/api/alerts/${editId.value}` : '/api/alerts'
+    const method = editId.value ? 'PUT' : 'POST'
+    const r = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    if(r.ok){ formOk.value=editId.value?'Alert updated!':'Alert created!'; f.value=blank(); editId.value=null; await load(); setTimeout(()=>{formOk.value=''},3000) }
+    else formErr.value='Failed (HTTP '+r.status+')'
+  }catch{ formErr.value='Network error — is the alert service running?' }
+  finally{ saving.value=false }
 }
 
-async function loadNeighborhoods() {
-  try {
-    const res = await fetch('/api/neighborhoods')
-    if (res.ok) {
-      const data = await res.json()
-      const arr = Array.isArray(data) ? data : []
-      neighborhoods.value = arr.map(n => n.name || n.neighborhood).filter(Boolean)
-    }
-  } catch (_) {}
+function startEdit(a){
+  editId.value=a.alertId
+  f.value={name:a.name||'',neighborhood:a.neighborhood||'',minPrice:a.minPrice,maxPrice:a.maxPrice,minSize:a.minSize,rooms:a.rooms,email:a.email||''}
+}
+function cancelEdit(){ editId.value=null; f.value=blank(); formErr.value='' }
+
+async function toggleAlert(a){
+  try{ await fetch(`/api/alerts/${a.alertId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...a,isActive:!a.isActive})}); await load() }catch{}
+}
+async function del(a){
+  if(!confirm(`Delete alert "${a.name||'Alert'}"?`)) return
+  try{ await fetch(`/api/alerts/${a.alertId}`,{method:'DELETE'}); await load() }catch{}
 }
 
-async function createAlert() {
-  formError.value = ''
-  formSuccess.value = ''
-  if (!form.value.userId) { formError.value = 'User ID is required.'; return }
-  saving.value = true
-  try {
-    const body = { userId: form.value.userId }
-    if (form.value.neighborhood) body.neighborhood = form.value.neighborhood
-    if (form.value.maxPrice)     body.maxPrice = form.value.maxPrice
-    if (form.value.minSize)      body.minSize = form.value.minSize
-    if (form.value.minRooms)     body.minRooms = form.value.minRooms
-
-    const res = await fetch('/api/alerts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.message || 'HTTP ' + res.status)
-    }
-    formSuccess.value = 'Alert created successfully!'
-    form.value = { userId: form.value.userId, neighborhood: '', maxPrice: null, minSize: null, minRooms: null }
-    loadAlerts()
-  } catch (e) {
-    formError.value = 'Error: ' + e.message
-  } finally {
-    saving.value = false
-  }
-}
-
-async function deactivate(alert) {
-  const id = alert.alertRuleId || alert.id
-  try {
-    const res = await fetch(`/api/alerts/${id}`, { method: 'DELETE' })
-    if (res.ok || res.status === 204) {
-      alert.active = false
-    }
-  } catch (e) {
-    globalError.value = 'Could not deactivate alert: ' + e.message
-  }
-}
-
-async function loadMatches(alert) {
-  selectedAlert.value = alert
-  matches.value = []
-  loadingMatches.value = true
-  const id = alert.alertRuleId || alert.id
-  try {
-    const res = await fetch(`/api/alerts/${id}/matches`)
-    if (res.ok) {
-      const data = await res.json()
-      matches.value = Array.isArray(data) ? data : []
-    }
-  } catch (e) {
-    globalError.value = 'Could not load matches: ' + e.message
-  } finally {
-    loadingMatches.value = false
-  }
-}
-
-onMounted(() => {
-  loadAlerts()
-  loadNeighborhoods()
-})
+onMounted(load)
 </script>
+
+<style scoped>
+.page       { display:flex; flex-direction:column; gap:18px; }
+.page-hd    { display:flex; justify-content:space-between; align-items:flex-start; }
+.page-title { font-size:1.375rem; font-weight:700; color:var(--text); margin:0 0 4px; }
+.page-sub   { font-size:.875rem; color:var(--muted); margin:0; }
+
+.alerts-layout { display:grid; grid-template-columns:330px 1fr; gap:20px; align-items:start; }
+@media(max-width:860px){ .alerts-layout { grid-template-columns:1fr; } }
+
+.form-card       { padding:22px; }
+.form-card-title { font-size:1rem; font-weight:600; color:var(--text); margin-bottom:18px; }
+
+.alerts-col { display:flex; flex-direction:column; gap:0; }
+.alert-list { display:flex; flex-direction:column; gap:12px; }
+
+.acard { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:16px; box-shadow:var(--shadow); transition:border-color .2s; }
+.acard:hover { border-color:var(--primary); }
+.acard--off  { opacity:.6; }
+
+.acard-hd    { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.acard-name  { font-size:.9rem; font-weight:600; color:var(--text); }
+.acard-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.acard-ft    { display:flex; align-items:center; justify-content:space-between; }
+.chip { font-size:.75rem; background:var(--primary-light); color:var(--primary-dark); padding:2px 8px; border-radius:20px; font-weight:500; }
+</style>
