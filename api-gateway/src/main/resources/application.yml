@@ -148,6 +148,47 @@ spring:
                 name: notificationServiceCB
                 fallbackUri: forward:/fallback
 
+        # ── Health check routes — proxy /api/health/{svc} → each service's /actuator/health
+        - id: health-scraper
+          uri: ${SCRAPER_SERVICE_URL:http://localhost:8081}
+          predicates: [ Path=/api/health/scraper ]
+          filters: [ SetPath=/actuator/health ]
+
+        - id: health-analytics
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8082}
+          predicates: [ Path=/api/health/analytics ]
+          filters: [ SetPath=/actuator/health ]
+
+        - id: health-user
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates: [ Path=/api/health/user ]
+          filters: [ SetPath=/actuator/health ]
+
+        - id: health-alert
+          uri: ${ALERT_SERVICE_URL:http://localhost:8084}
+          predicates: [ Path=/api/health/alert ]
+          filters: [ SetPath=/actuator/health ]
+
+        - id: health-neighborhood
+          uri: ${NEIGHBORHOOD_SERVICE_URL:http://localhost:8085}
+          predicates: [ Path=/api/health/neighborhood ]
+          filters: [ SetPath=/actuator/health ]
+
+        - id: health-landlord
+          uri: ${LANDLORD_SERVICE_URL:http://localhost:8086}
+          predicates: [ Path=/api/health/landlord ]
+          filters: [ SetPath=/actuator/health ]
+
+        - id: health-listing
+          uri: ${LISTING_SERVICE_URL:http://localhost:8087}
+          predicates: [ Path=/api/health/listing ]
+          filters: [ SetPath=/actuator/health ]
+
+        - id: health-notification
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8088}
+          predicates: [ Path=/api/health/notification ]
+          filters: [ SetPath=/actuator/health ]
+
 # ── Actuator ─────────────────────────────────────────────────────
 management:
   endpoints:
@@ -158,7 +199,7 @@ management:
     health:
       show-details: always
     gateway:
-      enabled: true
+      access: unrestricted
 
 # ── Resilience4j circuit-breaker ─────────────────────────────────
 resilience4j:

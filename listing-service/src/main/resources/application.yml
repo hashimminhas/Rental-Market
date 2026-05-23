@@ -43,3 +43,12 @@ messaging:
     listings: listing.events
   routing-keys:
     listing-claimed: listing.claimed
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always

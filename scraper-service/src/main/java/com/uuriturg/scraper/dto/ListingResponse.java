@@ -61,4 +61,7 @@ public class ListingResponse {
 
     @Schema(description = "Timestamp when this listing was first added to the database")
     private LocalDateTime createdAt;
+
+    @Schema(description = "True for seed/demo listings, false for real scraped listings", example = "false")
+    private Boolean synthetic;
 }

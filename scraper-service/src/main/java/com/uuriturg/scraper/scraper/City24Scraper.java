@@ -1,25 +1,34 @@
 package com.uuriturg.scraper.scraper;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uuriturg.scraper.domain.Listing;
 import com.uuriturg.scraper.domain.Source;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 @Component
 @Slf4j
 public class City24Scraper implements RentalScraper {
 
-    private static final String URL = "https://city24.ee/en/real-estate-search/apartments-for-rent/tartu";
-    private static final String BASE_URL = "https://city24.ee";
-    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    private static final String API_URL =
+            "https://api.city24.ee/et_EE/search/realties?tsType=rent&unitType=Apartment&itemsPerPage=200";
+    private static final String LISTING_BASE = "https://www.city24.ee/en/real-estate/";
+
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public String getSourceName() {
@@ -29,64 +38,103 @@ public class City24Scraper implements RentalScraper {
     @Override
     public List<Listing> scrape() {
         List<Listing> listings = new ArrayList<>();
-
         try {
-            log.info("Starting City24 scrape from {}", URL);
-            Document doc = Jsoup.connect(URL)
-                    .userAgent(USER_AGENT)
-                    .timeout(15000)
-                    .get();
+            log.info("City24: calling JSON API {}", API_URL);
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(API_URL))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Accept", "application/json")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .GET()
+                    .build();
 
-            // City24 renders listings as article elements inside a results container
-            Elements items = doc.select("article.object-type-apartment, article[class*=listing], li[class*=listing]");
+            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+            log.info("City24 API status: {}", resp.statusCode());
 
-            if (items.isEmpty()) {
-                items = doc.select("div[class*=result] article, section[class*=list] article");
-            }
+            if (resp.statusCode() == 200) {
+                JsonNode root = mapper.readTree(resp.body());
+                // Response is either an array or {"realties": [...]}
+                JsonNode items = root.isArray() ? root : root.path("realties");
+                if (items.isMissingNode()) items = root;
 
-            log.info("City24: found {} listing elements", items.size());
-
-            for (Element item : items) {
-                try {
-                    Listing listing = parseItem(item);
-                    if (listing != null) {
-                        listings.add(listing);
+                log.info("City24: {} total items from API", items.size());
+                for (JsonNode item : items) {
+                    try {
+                        Listing l = parseApiItem(item);
+                        if (l != null) listings.add(l);
+                    } catch (Exception e) {
+                        log.warn("City24: parse error — {}", e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warn("City24: failed to parse one listing item — {}", e.getMessage());
                 }
+                log.info("City24: {} Tartu listings after filter", listings.size());
             }
-
         } catch (Exception e) {
-            log.error("City24 scrape failed: {}", e.getMessage());
-        }
-
-        log.info("City24 scrape complete — {} listings parsed", listings.size());
-
-        if (listings.isEmpty()) {
-            log.info("City24 returned 0 — generating seed data");
-            listings = generateSeedListings();
+            log.error("City24 API scrape failed: {}", e.getMessage());
         }
 
         return listings;
     }
 
+    private Listing parseApiItem(JsonNode n) {
+        JsonNode addr = n.path("address");
+        String county = addr.path("county_name").asText("");
+        String city   = addr.path("city_name").asText("");
+
+        // Filter: only Tartu area
+        if (!county.contains("Tartu") && !city.equalsIgnoreCase("Tartu")) return null;
+
+        long id = n.path("id").asLong(0);
+        if (id == 0) return null;
+
+        String friendlyId = n.path("friendly_id").asText("");
+        String url = friendlyId.isBlank()
+                ? "https://www.city24.ee/en/real-estate-search/apartments-for-rent/tartu"
+                : LISTING_BASE + friendlyId;
+
+        String street      = addr.path("street_name").asText("").trim();
+        String houseNumber = addr.path("house_number").asText("").trim();
+        String fullStreet  = (street + (houseNumber.isBlank() ? "" : " " + houseNumber)).trim();
+
+        String district    = addr.path("district_name").asText("").trim();
+        String neighborhood = district.isBlank() ? detectNeighborhood(fullStreet + " " + city) : capitalize(district);
+
+        double priceVal = n.path("price").asDouble(0);
+        double sizeVal  = n.path("property_size").asDouble(0);
+        int rooms       = n.path("room_count").asInt(0);
+
+        String title = rooms + "-room apartment" + (neighborhood != null ? " in " + neighborhood : "")
+                + (fullStreet.isBlank() ? "" : ", " + fullStreet);
+
+        return Listing.builder()
+                .source(Source.CITY24)
+                .externalId("city24-" + id)
+                .title(title)
+                .price(priceVal > 0 ? BigDecimal.valueOf(priceVal) : null)
+                .size(sizeVal > 0 ? BigDecimal.valueOf(sizeVal) : null)
+                .rooms(rooms > 0 ? rooms : null)
+                .neighborhood(neighborhood)
+                .street(fullStreet.isBlank() ? null : fullStreet)
+                .city("Tartu")
+                .url(url)
+                .build();
+    }
+
     public List<Listing> generateSeedListings() {
-        java.util.Random rng = new java.util.Random(55);
+        Random rng = new Random(55);
         List<Listing> seed = new ArrayList<>();
         String[][] data = {
-            {"Kesklinn",  "Küütri",      "2", "680", "980",  "50", "72"},
-            {"Kesklinn",  "Raekoja",     "1", "520", "750",  "34", "50"},
-            {"Tammelinn", "Tammela",     "3", "720", "1050", "68", "94"},
-            {"Tammelinn", "Näituse",     "2", "580", "840",  "54", "76"},
-            {"Karlova",   "Kastani",     "2", "600", "870",  "55", "77"},
-            {"Karlova",   "Tähe",        "1", "440", "640",  "36", "52"},
-            {"Annelinn",  "Kaunase",     "2", "360", "540",  "52", "72"},
-            {"Annelinn",  "Mõisavahe",   "3", "450", "660",  "64", "90"},
-            {"Supilinn",  "Oa",          "2", "640", "930",  "55", "77"},
-            {"Veeriku",   "Veeriku",     "2", "520", "760",  "55", "78"},
-            {"Tähtvere",  "Tähtvere",    "2", "560", "820",  "58", "80"},
-            {"Maarjamõisa","Maarjamõisa","2", "550", "800",  "57", "80"},
+            {"Kesklinn",    "Küütri",       "2", "680", "980",  "50", "72"},
+            {"Kesklinn",    "Raekoja",      "1", "520", "750",  "34", "50"},
+            {"Tammelinn",   "Tammela",      "3", "720", "1050", "68", "94"},
+            {"Tammelinn",   "Näituse",      "2", "580", "840",  "54", "76"},
+            {"Karlova",     "Kastani",      "2", "600", "870",  "55", "77"},
+            {"Karlova",     "Tähe",         "1", "440", "640",  "36", "52"},
+            {"Annelinn",    "Kaunase",      "2", "360", "540",  "52", "72"},
+            {"Annelinn",    "Mõisavahe",    "3", "450", "660",  "64", "90"},
+            {"Supilinn",    "Oa",           "2", "640", "930",  "55", "77"},
+            {"Veeriku",     "Veeriku",      "2", "520", "760",  "55", "78"},
+            {"Tähtvere",    "Tähtvere",     "2", "560", "820",  "58", "80"},
+            {"Maarjamõisa", "Maarjamõisa",  "2", "550", "800",  "57", "80"},
         };
         for (int i = 0; i < data.length; i++) {
             String[] r = data[i];
@@ -94,117 +142,31 @@ public class City24Scraper implements RentalScraper {
             int size  = Integer.parseInt(r[5]) + rng.nextInt(Integer.parseInt(r[6]) - Integer.parseInt(r[5]) + 1);
             int rooms = Integer.parseInt(r[2]);
             int num   = 1 + rng.nextInt(28);
-            String externalId = "city24-" + (10000 + i);
             seed.add(Listing.builder()
                     .source(Source.CITY24)
-                    .externalId(externalId)
+                    .externalId("city24-" + (10000 + i))
                     .title(rooms + "-toaline korter " + r[0] + "s, " + r[1] + " " + num)
-                    .price(java.math.BigDecimal.valueOf(price))
-                    .size(java.math.BigDecimal.valueOf(size))
+                    .price(BigDecimal.valueOf(price))
+                    .size(BigDecimal.valueOf(size))
                     .rooms(rooms)
                     .neighborhood(r[0])
                     .street(r[1] + " " + num)
                     .city("Tartu")
-                    .url("https://www.city24.ee/real-estate/" + externalId)
+                    .url("https://www.city24.ee/en/real-estate-search/apartments-for-rent/tartu")
+                    .synthetic(true)
                     .build());
         }
         log.info("Generated {} City24 seed listings", seed.size());
         return seed;
     }
 
-    private Listing parseItem(Element item) {
-        String href = item.select("a[href]").attr("href");
-        if (href == null || href.isBlank()) return null;
-
-        String url = href.startsWith("http") ? href : BASE_URL + href;
-        String externalId = extractExternalId(href);
-        if (externalId == null) return null;
-
-        String title = item.select("h2, h3, [class*=title], [class*=name]").text();
-
-        BigDecimal price = parsePrice(
-                item.select("[class*=price]").text()
-        );
-
-        BigDecimal size = parseSize(
-                item.select("[class*=area], [class*=size], [class*=sqm]").text()
-        );
-
-        Integer rooms = parseRooms(
-                item.select("[class*=room]").text()
-        );
-
-        String address = item.select("[class*=address], [class*=location]").text();
-        String neighborhood = detectNeighborhood(address + " " + title);
-
-        return Listing.builder()
-                .source(Source.CITY24)
-                .externalId(externalId)
-                .title(title.isBlank() ? "City24 listing" : title)
-                .price(price)
-                .size(size)
-                .rooms(rooms)
-                .neighborhood(neighborhood)
-                .street(address)
-                .city("Tartu")
-                .url(url)
-                .build();
-    }
-
-    private String extractExternalId(String href) {
-        // City24 URLs look like /en/real-estate/apartment-12345678 or contain a numeric segment
-        String[] parts = href.split("/");
-        for (int i = parts.length - 1; i >= 0; i--) {
-            String segment = parts[i].replaceAll("[^0-9]", "");
-            if (segment.length() >= 4) return segment;
-        }
-        return null;
-    }
-
-    private BigDecimal parsePrice(String text) {
-        if (text == null || text.isBlank()) return null;
-        try {
-            String cleaned = text.replaceAll("[^0-9]", "");
-            if (cleaned.isBlank()) return null;
-            return new BigDecimal(cleaned);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private BigDecimal parseSize(String text) {
-        if (text == null || text.isBlank()) return null;
-        try {
-            String cleaned = text.replaceAll("[^0-9.,]", "").replace(",", ".");
-            if (cleaned.isBlank()) return null;
-            return new BigDecimal(cleaned.split(" ")[0]);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private Integer parseRooms(String text) {
-        if (text == null || text.isBlank()) return null;
-        try {
-            String digits = text.replaceAll("[^0-9]", "");
-            if (digits.isBlank()) return null;
-            return Integer.parseInt(digits.substring(0, 1));
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private String detectNeighborhood(String text) {
         if (text == null) return null;
         String lower = text.toLowerCase();
-        String[] neighborhoods = {
-                "kesklinn", "ülejõe", "tammelinn", "annelinn",
-                "karlova", "veeriku", "tähtvere", "supilinn", "ränilinn", "maarjamõisa"
-        };
-        for (String n : neighborhoods) {
-            if (lower.contains(n)) {
-                return capitalize(n);
-            }
+        String[] hoods = {"kesklinn", "ülejõe", "tammelinn", "annelinn",
+                "karlova", "veeriku", "tähtvere", "supilinn", "ränilinn", "maarjamõisa"};
+        for (String n : hoods) {
+            if (lower.contains(n)) return capitalize(n);
         }
         return null;
     }

@@ -61,11 +61,6 @@ public class MaametScraper implements RentalScraper {
             log.error("Maa-amet scrape failed: {}", e.getMessage());
         }
 
-        if (listings.isEmpty()) {
-            log.info("Maa-amet returned 0 — generating seed data from official statistics");
-            listings = generateSeedListings();
-        }
-
         return listings;
     }
 
@@ -102,7 +97,7 @@ public class MaametScraper implements RentalScraper {
                             .price(price).size(size).rooms(rooms)
                             .neighborhood(neighborhood)
                             .street(address).city("Tartu")
-                            .url("https://www.maaamet.ee/kinnisvara/tehingud/")
+                            .url("https://maaruum.ee")
                             .build());
                 }
             }
@@ -182,7 +177,8 @@ public class MaametScraper implements RentalScraper {
                     .neighborhood(neighborhood)
                     .street(street + " " + streetNum)
                     .city("Tartu")
-                    .url("https://www.maaamet.ee/kinnisvara/tehingud/")
+                    .url("https://maaruum.ee")
+                    .synthetic(true)
                     .build());
         }
 

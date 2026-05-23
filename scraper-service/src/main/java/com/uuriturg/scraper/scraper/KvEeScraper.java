@@ -3,25 +3,56 @@ package com.uuriturg.scraper.scraper;
 import com.uuriturg.scraper.domain.Listing;
 import com.uuriturg.scraper.domain.Source;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.util.zip.GZIPInputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @Slf4j
 public class KvEeScraper implements RentalScraper {
 
-    private static final String URL = "https://www.kv.ee/?deal_type=2&county=18&parish=1061&property_type=1";
-    private static final String BASE_URL = "https://www.kv.ee";
-    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    private static final String SEARCH_URL =
+            "https://www.kv.ee/search?deal_type=2&county=12&parish=1063&property_type=1";
+    private static final String RSS_URL = SEARCH_URL + "&rss=1";
+    private static final String USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    private static final int PAGE_SIZE = 50;
+    private static final int MAX_PAGES = 2;
+
+    private static final Pattern EXTERNAL_ID = Pattern.compile("(\\d+)\\.html(?:$|[?#])");
+    private static final Pattern PRICE = Pattern.compile("([0-9][0-9\\s\\u00A0]*)\\s*(?:\\u20AC|EUR)");
+    private static final Pattern ROOMS = Pattern.compile("(\\d+)\\s*tuba", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern SIZE_AFTER_OWNERSHIP = Pattern.compile(
+            "(?:Korteriomand|Kinnistu|Üürileping),\\s*([0-9]+(?:[\\.,][0-9]+)?)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern SIZE_WITH_LABEL = Pattern.compile(
+            "(?:Pindala|Üldpind)[:\\s]+([0-9]+(?:[\\.,][0-9]+)?)\\s*(?:m2|m²)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
     @Override
     public String getSourceName() {
@@ -31,47 +62,107 @@ public class KvEeScraper implements RentalScraper {
     @Override
     public List<Listing> scrape() {
         List<Listing> listings = new ArrayList<>();
+        Set<String> seenExternalIds = new HashSet<>();
 
         try {
-            log.info("Starting KV.ee scrape from {}", URL);
-            Document doc = Jsoup.connect(URL)
-                    .userAgent(USER_AGENT)
-                    .timeout(15000)
-                    .get();
+            for (int page = 0; page < MAX_PAGES; page++) {
+                int start = page * PAGE_SIZE;
+                String url = start == 0 ? RSS_URL : RSS_URL + "&start=" + start;
+                log.info("KV.ee: calling RSS feed {}", url);
 
-            Elements items = doc.select("article.object-type-apartment, article.object-type-house");
-            if (items.isEmpty()) {
-                items = doc.select("div.result-row");
-            }
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(Duration.ofSeconds(20))
+                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                        .header("Accept-Language", "et-EE,et;q=0.9,en-US;q=0.8,en;q=0.7")
+                        .header("Accept-Encoding", "gzip, deflate, br")
+                        .header("User-Agent", USER_AGENT)
+                        .header("Referer", "https://www.kv.ee/")
+                        .header("Cache-Control", "no-cache")
+                        .GET()
+                        .build();
 
-            log.info("KV.ee: found {} listing elements", items.size());
-
-            for (Element item : items) {
-                try {
-                    Listing listing = parseItem(item);
-                    if (listing != null) {
-                        listings.add(listing);
-                    }
-                } catch (Exception e) {
-                    log.warn("KV.ee: failed to parse one listing item — {}", e.getMessage());
+                HttpResponse<byte[]> resp = http.send(req, HttpResponse.BodyHandlers.ofByteArray());
+                log.info("KV.ee RSS status for start {}: {}", start, resp.statusCode());
+                if (resp.statusCode() != 200) {
+                    log.warn("KV.ee RSS non-200 for start {}: body={}", start,
+                            new String(resp.body(), java.nio.charset.StandardCharsets.UTF_8).substring(0, Math.min(200, resp.body().length)));
+                    break;
                 }
-            }
 
+                byte[] bodyBytes = resp.body();
+                String encoding = resp.headers().firstValue("Content-Encoding").orElse("");
+                if ("gzip".equalsIgnoreCase(encoding)) {
+                    try (InputStream gzis = new GZIPInputStream(new ByteArrayInputStream(bodyBytes))) {
+                        bodyBytes = gzis.readAllBytes();
+                    }
+                }
+                List<Listing> pageListings = parseRss(bodyBytes, seenExternalIds);
+                if (pageListings.isEmpty()) {
+                    break;
+                }
+                listings.addAll(pageListings);
+            }
         } catch (Exception e) {
-            log.error("KV.ee scrape failed: {}", e.getMessage());
+            log.error("KV.ee RSS scrape failed: {}", e.getMessage());
         }
 
-        log.info("KV.ee scrape complete — {} listings parsed", listings.size());
+        log.info("KV.ee scrape complete - {} listings parsed", listings.size());
+        return listings;
+    }
 
-        if (listings.isEmpty()) {
-            log.info("KV.ee returned 0 listings — generating seed data for demo");
-            listings = generateSeedListings();
+    private List<Listing> parseRss(byte[] body, Set<String> seenExternalIds) throws Exception {
+        List<Listing> listings = new ArrayList<>();
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setExpandEntityReferences(false);
+
+        Document doc = factory.newDocumentBuilder()
+                .parse(new InputSource(new ByteArrayInputStream(body)));
+        NodeList items = doc.getElementsByTagName("item");
+
+        for (int i = 0; i < items.getLength(); i++) {
+            Element item = (Element) items.item(i);
+            Listing listing = parseRssItem(item);
+            if (listing != null && seenExternalIds.add(listing.getExternalId())) {
+                listings.add(listing);
+            }
         }
 
         return listings;
     }
 
-    // ── Seed data ──────────────────────────────────────────────────────────────
+    private Listing parseRssItem(Element item) {
+        String title = childText(item, "title");
+        String url = childText(item, "guid");
+        if (url == null || url.isBlank()) {
+            url = firstLinkFromDescription(childText(item, "description"));
+        }
+
+        String externalId = extractExternalId(url);
+        if (externalId == null) return null;
+
+        String descriptionHtml = childText(item, "description");
+        String description = htmlToText(descriptionHtml);
+        String combined = (title + " " + description).trim();
+
+        return Listing.builder()
+                .source(Source.KV_EE)
+                .externalId("kv-" + externalId)
+                .title(title)
+                .price(parsePrice(title))
+                .size(parseSize(description))
+                .rooms(parseRooms(title))
+                .neighborhood(detectNeighborhood(combined))
+                .street(parseStreet(title))
+                .city("Tartu")
+                .url(url)
+                .synthetic(false)
+                .build();
+    }
 
     public List<Listing> generateSeedListings() {
         Random rng = new Random(42);
@@ -111,7 +202,7 @@ public class KvEeScraper implements RentalScraper {
             {"Tähtvere",     "Lepiku",       "1", "410", "580",  "36", "50"},
             {"Supilinn",     "Oa",           "2", "580", "850",  "52", "72"},
             {"Supilinn",     "Kartuli",      "1", "420", "620",  "35", "50"},
-            {"Supilinn",     "Hernе",        "3", "700", "1050", "65", "90"},
+            {"Supilinn",     "Herne",        "3", "700", "1050", "65", "90"},
             {"Ränilinn",     "Räni",         "2", "440", "640",  "50", "70"},
             {"Ränilinn",     "Puru",         "3", "520", "760",  "65", "88"},
             {"Maarjamõisa",  "Maarjamõisa",  "2", "520", "760",  "55", "78"},
@@ -121,20 +212,19 @@ public class KvEeScraper implements RentalScraper {
         for (int i = 0; i < data.length; i++) {
             String[] row = data[i];
             String neighborhood = row[0];
-            String street       = row[1];
-            int rooms           = Integer.parseInt(row[2]);
-            int minPrice        = Integer.parseInt(row[3]);
-            int maxPrice        = Integer.parseInt(row[4]);
-            int minSize         = Integer.parseInt(row[5]);
-            int maxSize         = Integer.parseInt(row[6]);
+            String street = row[1];
+            int rooms = Integer.parseInt(row[2]);
+            int minPrice = Integer.parseInt(row[3]);
+            int maxPrice = Integer.parseInt(row[4]);
+            int minSize = Integer.parseInt(row[5]);
+            int maxSize = Integer.parseInt(row[6]);
 
             int price = minPrice + rng.nextInt(maxPrice - minPrice + 1);
-            int size  = minSize  + rng.nextInt(maxSize  - minSize  + 1);
+            int size = minSize + rng.nextInt(maxSize - minSize + 1);
             int streetNum = 1 + rng.nextInt(30);
 
             String title = rooms + "-toaline korter " + neighborhood + "s, " + street + " tän. " + streetNum;
             String externalId = "seed-" + (10000 + i);
-            String url = "https://www.kv.ee/kinnisvara/korterid/" + externalId;
 
             seed.add(Listing.builder()
                     .source(Source.KV_EE)
@@ -146,7 +236,8 @@ public class KvEeScraper implements RentalScraper {
                     .neighborhood(neighborhood)
                     .street(street + " " + streetNum)
                     .city("Tartu")
-                    .url(url)
+                    .url(SEARCH_URL)
+                    .synthetic(true)
                     .build());
         }
 
@@ -154,94 +245,94 @@ public class KvEeScraper implements RentalScraper {
         return seed;
     }
 
-    // ── HTML parsing (used when real scrape succeeds) ──────────────────────────
-
-    private Listing parseItem(Element item) {
-        String href = item.select("a[href]").attr("href");
-        if (href == null || href.isBlank()) return null;
-
-        String url = href.startsWith("http") ? href : BASE_URL + href;
-        String externalId = extractExternalId(href);
-        if (externalId == null) return null;
-
-        String title = item.select("h2, h3, .object-title, .title").text();
-        if (title.isBlank()) {
-            title = item.select("a[href]").attr("title");
-        }
-
-        BigDecimal price = parsePrice(
-                item.select(".price, .object-price, span[class*=price]").text()
-        );
-
-        BigDecimal size = parseSize(
-                item.select(".area, .object-area, span[class*=area], span[class*=size]").text()
-        );
-
-        Integer rooms = parseRooms(
-                item.select(".rooms, .object-rooms, span[class*=room]").text()
-        );
-
-        String address = item.select(".address, .object-address, span[class*=address]").text();
-        String neighborhood = detectNeighborhood(address + " " + title);
-
-        return Listing.builder()
-                .source(Source.KV_EE)
-                .externalId(externalId)
-                .title(title.isBlank() ? "KV.ee listing" : title)
-                .price(price)
-                .size(size)
-                .rooms(rooms)
-                .neighborhood(neighborhood)
-                .street(address)
-                .city("Tartu")
-                .url(url)
-                .build();
+    private String childText(Element item, String tagName) {
+        NodeList nodes = item.getElementsByTagName(tagName);
+        if (nodes.getLength() == 0) return "";
+        return nodes.item(0).getTextContent().trim();
     }
 
-    private String extractExternalId(String href) {
-        String[] parts = href.replaceAll("[^0-9/]", "").split("/");
-        for (int i = parts.length - 1; i >= 0; i--) {
-            if (!parts[i].isBlank()) return parts[i];
-        }
+    private String firstLinkFromDescription(String descriptionHtml) {
+        if (descriptionHtml == null) return null;
+        Matcher matcher = Pattern.compile("href=\"([^\"]+)\"").matcher(descriptionHtml);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private String extractExternalId(String url) {
+        if (url == null || url.isBlank()) return null;
+        Matcher matcher = EXTERNAL_ID.matcher(url);
+        if (matcher.find()) return matcher.group(1);
         return null;
     }
 
     private BigDecimal parsePrice(String text) {
         if (text == null || text.isBlank()) return null;
-        try {
-            String cleaned = text.replaceAll("[^0-9,.]", "").replace(",", ".");
-            if (cleaned.isBlank()) return null;
-            return new BigDecimal(cleaned.split("\\.")[0]);
-        } catch (Exception e) {
-            return null;
-        }
+        Matcher matcher = PRICE.matcher(text);
+        if (!matcher.find()) return null;
+        String digits = matcher.group(1).replaceAll("[^0-9]", "");
+        return digits.isBlank() ? null : new BigDecimal(digits);
     }
 
     private BigDecimal parseSize(String text) {
         if (text == null || text.isBlank()) return null;
+        Matcher matcher = SIZE_AFTER_OWNERSHIP.matcher(text);
+        boolean matched = matcher.find();
+        if (!matched) {
+            matcher = SIZE_WITH_LABEL.matcher(text);
+            matched = matcher.find();
+        }
+        if (!matched) return null;
+
         try {
-            String cleaned = text.replaceAll("[^0-9.,]", "").replace(",", ".");
-            if (cleaned.isBlank()) return null;
-            return new BigDecimal(cleaned.split(" ")[0]);
-        } catch (Exception e) {
+            return new BigDecimal(matcher.group(1).replace(",", "."));
+        } catch (NumberFormatException e) {
             return null;
         }
     }
 
     private Integer parseRooms(String text) {
         if (text == null || text.isBlank()) return null;
-        try {
-            String digits = text.replaceAll("[^0-9]", "");
-            if (digits.isBlank()) return null;
-            return Integer.parseInt(digits.substring(0, 1));
-        } catch (Exception e) {
-            return null;
+        Matcher matcher = ROOMS.matcher(text);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : null;
+    }
+
+    private String parseStreet(String title) {
+        if (title == null || title.isBlank()) return null;
+        String[] parts = title.split(",");
+        int roomsIndex = -1;
+        for (int i = 0; i < parts.length; i++) {
+            if (ROOMS.matcher(parts[i]).find()) {
+                roomsIndex = i;
+                break;
+            }
         }
+        if (roomsIndex < 0) return null;
+
+        for (int i = roomsIndex + 1; i < parts.length; i++) {
+            String part = parts[i].trim();
+            if (part.isBlank()) continue;
+            String lower = part.toLowerCase(Locale.ROOT);
+            if (lower.contains("tartu") || PRICE.matcher(part).find()) {
+                break;
+            }
+            return part;
+        }
+        return null;
+    }
+
+    private String htmlToText(String html) {
+        if (html == null || html.isBlank()) return "";
+        return html
+                .replace("&nbsp;", " ")
+                .replace("&#160;", " ")
+                .replace("&amp;", "&")
+                .replaceAll("<[^>]+>", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private String detectNeighborhood(String text) {
         if (text == null) return null;
-        String lower = text.toLowerCase();
+        String lower = text.toLowerCase(Locale.ROOT);
         String[] neighborhoods = {
                 "kesklinn", "ülejõe", "tammelinn", "annelinn",
                 "karlova", "veeriku", "tähtvere", "supilinn", "ränilinn", "maarjamõisa"
@@ -254,6 +345,6 @@ public class KvEeScraper implements RentalScraper {
 
     private String capitalize(String s) {
         if (s == null || s.isEmpty()) return s;
-        return s.substring(0, 1).toUpperCase() + s.substring(1);
+        return s.substring(0, 1).toUpperCase(Locale.ROOT) + s.substring(1);
     }
 }

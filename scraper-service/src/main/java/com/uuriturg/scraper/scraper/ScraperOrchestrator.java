@@ -1,13 +1,13 @@
 package com.uuriturg.scraper.scraper;
 
 import com.uuriturg.scraper.domain.Listing;
-import com.uuriturg.scraper.domain.Source;
 import com.uuriturg.scraper.dto.ScrapeJobResponse;
 import com.uuriturg.scraper.messaging.ListingEventPublisher;
 import com.uuriturg.scraper.service.ListingService;
 import com.uuriturg.scraper.service.ScrapeJobService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -32,16 +32,15 @@ public class ScraperOrchestrator {
     @Scheduled(cron = "${scraper.schedule.cron}")
     public void scheduledRun() {
         log.info("Scheduled scrape triggered");
-        ScrapeJobResponse job = scrapeJobService.startJob(Source.KV_EE);
+        ScrapeJobResponse job = scrapeJobService.startJob(null);
         runAll(job.getJobId());
     }
 
-    // called by POST /scraper/trigger — runs in background thread so the HTTP response returns immediately
+    // @Async — Spring manages the thread pool; HTTP response returns immediately
+    @Async
     public void triggerAsync(UUID jobId) {
-        new Thread(() -> {
-            log.info("Manual scrape triggered, jobId={}", jobId);
-            runAll(jobId);
-        }, "scraper-thread-" + jobId).start();
+        log.info("Manual scrape triggered, jobId={}", jobId);
+        runAll(jobId);
     }
 
     public void runAll(UUID jobId) {

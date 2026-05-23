@@ -35,3 +35,12 @@ messaging:
     landlord: landlord.events
   routing-keys:
     review-posted: review.posted
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always

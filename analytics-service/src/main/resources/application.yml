@@ -29,3 +29,12 @@ springdoc:
 scraper:
   service:
     base-url: ${SCRAPER_SERVICE_URL:http://localhost:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
