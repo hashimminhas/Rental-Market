@@ -1,14 +1,5 @@
 package com.uuriturg.scraper.scraper;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.uuriturg.scraper.domain.Listing;
-import com.uuriturg.scraper.domain.Source;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -19,7 +10,17 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Random;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.uuriturg.scraper.domain.Listing;
+import com.uuriturg.scraper.domain.Source;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
@@ -124,6 +125,7 @@ public class RendinScraper implements RentalScraper {
 
         String address = item.path("address").asText("").trim();
         Integer rooms = item.path("rooms").isNumber() ? item.path("rooms").asInt() : null;
+        String imageUrl = extractImageUrl(item);
         String title = (rooms != null ? rooms + "-toaline korter" : "Korter")
                 + " Tartus"
                 + (address.isBlank() ? "" : ", " + address);
@@ -139,72 +141,47 @@ public class RendinScraper implements RentalScraper {
                 .street(address.isBlank() ? null : address)
                 .city("Tartu")
                 .url(link.isBlank() ? SEARCH_URL : link)
+                .imageUrl(imageUrl)
                 .synthetic(false)
                 .build();
     }
 
-    public List<Listing> generateSeedListings() {
-        Random rng = new Random(42);
-        List<Listing> seed = new ArrayList<>();
+    private String extractImageUrl(JsonNode item) {
+        String direct = text(item, "imageUrl", "mainImage", "coverImage", "thumbnail", "cover");
+        if (direct != null) return direct;
 
-        String[][] data = {
-            // { neighborhood, street, rooms, minPrice, maxPrice, minSize, maxSize }
-            {"Kesklinn",    "Küütri",       "2", "700", "1050", "50", "70"},
-            {"Kesklinn",    "Raekoja",      "1", "550", "780",  "34", "48"},
-            {"Kesklinn",    "Ülikooli",     "3", "900", "1350", "72", "98"},
-            {"Tammelinn",   "Tammela",      "2", "620", "900",  "55", "75"},
-            {"Tammelinn",   "Näituse",      "3", "750", "1100", "68", "92"},
-            {"Tammelinn",   "Filosoofi",    "1", "450", "650",  "36", "52"},
-            {"Karlova",     "Kastani",      "2", "640", "920",  "56", "76"},
-            {"Karlova",     "Tähe",         "1", "460", "660",  "37", "52"},
-            {"Karlova",     "Aleksandri",   "3", "780", "1150", "72", "98"},
-            {"Supilinn",    "Oa",           "2", "650", "950",  "54", "76"},
-            {"Supilinn",    "Kartuli",      "1", "470", "680",  "38", "54"},
-            {"Supilinn",    "Herne",        "3", "800", "1180", "70", "96"},
-            {"Veeriku",     "Veeriku",      "2", "540", "780",  "55", "75"},
-            {"Veeriku",     "Männiku",      "3", "660", "960",  "68", "95"},
-            {"Tähtvere",    "Tähtvere",     "2", "590", "850",  "58", "80"},
-            {"Tähtvere",    "Lepiku",       "1", "430", "620",  "38", "54"},
-            {"Annelinn",    "Kaunase",      "2", "380", "560",  "52", "72"},
-            {"Annelinn",    "Mõisavahe",    "3", "460", "680",  "65", "90"},
-            {"Maarjamõisa", "Maarjamõisa",  "2", "560", "820",  "58", "82"},
-            {"Ränilinn",    "Ringtee",      "2", "500", "730",  "54", "76"},
-        };
+        String fromImages = firstUrlFromArray(item.path("images"));
+        if (fromImages != null) return fromImages;
 
-        for (int i = 0; i < data.length; i++) {
-            String[] row = data[i];
-            String neighborhood = row[0];
-            String street = row[1];
-            int rooms = Integer.parseInt(row[2]);
-            int minPrice = Integer.parseInt(row[3]);
-            int maxPrice = Integer.parseInt(row[4]);
-            int minSize = Integer.parseInt(row[5]);
-            int maxSize = Integer.parseInt(row[6]);
+        String fromPhotos = firstUrlFromArray(item.path("photos"));
+        if (fromPhotos != null) return fromPhotos;
 
-            int price = minPrice + rng.nextInt(maxPrice - minPrice + 1);
-            int size = minSize + rng.nextInt(maxSize - minSize + 1);
-            int streetNum = 1 + rng.nextInt(28);
+        String fromGallery = firstUrlFromArray(item.path("gallery"));
+        if (fromGallery != null) return fromGallery;
 
-            String title = rooms + "-toaline korter " + neighborhood + "s, " + street + " " + streetNum;
-            String externalId = "rendin-" + (30000 + i);
+        return null;
+    }
 
-            seed.add(Listing.builder()
-                    .source(Source.RENDIN)
-                    .externalId(externalId)
-                    .title(title)
-                    .price(BigDecimal.valueOf(price))
-                    .size(BigDecimal.valueOf(size))
-                    .rooms(rooms)
-                    .neighborhood(neighborhood)
-                    .street(street + " " + streetNum)
-                    .city("Tartu")
-                    .url(SEARCH_URL)
-                    .synthetic(true)
-                    .build());
+    private String firstUrlFromArray(JsonNode node) {
+        if (node == null || !node.isArray() || node.size() == 0) return null;
+        for (JsonNode entry : node) {
+            if (entry.isTextual()) {
+                String url = entry.asText("").trim();
+                if (!url.isBlank()) return url;
+            }
+            String url = text(entry, "url", "imageUrl", "src", "href");
+            if (url != null) return url;
         }
+        return null;
+    }
 
-        log.info("Generated {} Rendin seed listings", seed.size());
-        return seed;
+    private String text(JsonNode node, String... keys) {
+        if (node == null || node.isMissingNode() || node.isNull()) return null;
+        for (String key : keys) {
+            String val = node.path(key).asText("").trim();
+            if (!val.isBlank()) return val;
+        }
+        return null;
     }
 
     private String extractInvitationCode(String link) {

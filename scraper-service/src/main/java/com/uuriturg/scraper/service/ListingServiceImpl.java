@@ -65,6 +65,7 @@ public class ListingServiceImpl implements ListingService {
             toUpdate.setSize(incoming.getSize());
             toUpdate.setRooms(incoming.getRooms());
             toUpdate.setUrl(incoming.getUrl());
+            toUpdate.setImageUrl(incoming.getImageUrl());
             toUpdate.setNeighborhood(incoming.getNeighborhood());
             toUpdate.setStreet(incoming.getStreet());
             toUpdate.setCity(incoming.getCity());
@@ -101,6 +102,7 @@ public class ListingServiceImpl implements ListingService {
                 .city(listing.getCity())
                 .postalCode(listing.getPostalCode())
                 .url(listing.getUrl())
+                .imageUrl(listing.getImageUrl())
                 .scrapedAt(listing.getScrapedAt())
                 .isActive(listing.getIsActive())
                 .createdAt(listing.getCreatedAt())

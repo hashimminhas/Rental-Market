@@ -50,6 +50,9 @@ public class Listing {
     @Column(length = 1000)
     private String url;
 
+    @Column(length = 1000)
+    private String imageUrl;
+
     private LocalDateTime scrapedAt;
 
     private Boolean isActive;

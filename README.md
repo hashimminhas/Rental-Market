@@ -1,34 +1,133 @@
-# Üüriturg — Estonian Rental Market Monitoring Platform
+# Üüriturg — Tartu Rental Market Monitor
 
-Aggregates rental listings from KV.ee, City24, and Rendin; tracks price trends by Tartu neighborhood; and notifies tenants when matching listings appear.
+A personal project I built to track the Tartu (Estonia) rental apartment market in real time.  
+It automatically scrapes listings from the three main Estonian rental platforms, aggregates them into a single dashboard, tracks price trends by neighbourhood, and can notify you when a new listing matches your criteria.
 
-## Team
+---
 
-| Member     | Services                          |
-|------------|-----------------------------------|
-| Hashim     | Scraper Service, Analytics Service |
-| Sudais     | User Service, Alert Service        |
-| Calvin     | Neighborhood Service, Landlord Service |
-| Daboikiabo | Listing Service, Notification Service |
+## What It Does
+
+- **Scrapes** KV.ee, City24, and Rendin every few hours — no manual searching required
+- **Deduplicates** listings so the same apartment never shows twice
+- **Shows photos** pulled directly from each platform's image CDN
+- **Tracks price trends** over time per Tartu neighbourhood (Kesklinn, Karlova, Annelinn, Supilinn, etc.)
+- **Alerts** — create a filter (price range, size, neighbourhood) and get notified when a match appears
+- **Landlord profiles** — see reviews and reputation scores for landlords
+- **Neighbourhood comparison** — compare average rents, price per m², and community scores
+
+---
+
+## Current Data (live)
+
+| Source      | Listings | Images |
+|-------------|----------|--------|
+| KV.ee       | 150      | Yes    |
+| City24      | 137      | Yes    |
+| Rendin      | 51       | Yes    |
+| **Total**   | **338**  | —      |
+
+All listings are real scraped data — no demo or seed listings.  
+Data covers rental apartments in Tartu, Estonia only.
+
+---
 
 ## Tech Stack
 
-| Layer        | Technology                         |
-|--------------|------------------------------------|
-| Language     | Java 21                            |
-| Framework    | Spring Boot 3.4.5                  |
-| Persistence  | Spring Data JPA + PostgreSQL 16    |
-| Messaging    | RabbitMQ 3 (Spring AMQP)          |
-| HTTP clients | Spring WebFlux WebClient           |
-| Docs         | SpringDoc OpenAPI 2.8.0 (Swagger)  |
-| Email (dev)  | MailHog                            |
-| Frontend     | Vue 3 + Vite + Vue Router          |
-| Containers   | Docker + Docker Compose            |
+| Layer       | Technology                              |
+|-------------|-----------------------------------------|
+| Backend     | Java 21 + Spring Boot 3.4.5             |
+| Database    | PostgreSQL 16 (one DB per service)      |
+| Messaging   | RabbitMQ 3 (Spring AMQP)               |
+| API Gateway | Spring Cloud Gateway                    |
+| Frontend    | Vue 3 + Vite + Vue Router + Chart.js    |
+| Scraping    | Java HttpClient + Jsoup + wget          |
+| Email (dev) | MailHog                                 |
+| Containers  | Docker + Docker Compose                 |
 
-## Port Reference
+---
+
+## Architecture
+
+Nine independent microservices behind a single API Gateway, each with its own database.
+
+```
+Browser (Vue 3 :5173)
+        │
+        ▼
+API Gateway (:8080)
+        │
+   ┌────┴──────────────────────────────────────┐
+   │                                           │
+scraper-service      →  scraper_db             │
+analytics-service    →  analytics_db           │
+user-service         →  user_db                │
+alert-service        →  alert_db               │
+neighborhood-service →  neighborhood_db        │
+landlord-service     →  landlord_db            │
+listing-service      →  listing_mgmt_db        │
+notification-service →  notification_db        │
+```
+
+RabbitMQ events flow between services:
+- `listing.new` → scraper-service produces → alert-service consumes
+- `listing.claimed` → listing-service produces → notification-service consumes
+- `review.posted` → landlord-service produces → notification-service consumes
+
+---
+
+## How the Scrapers Work
+
+| Source    | Method                                                                 |
+|-----------|------------------------------------------------------------------------|
+| KV.ee     | HTML scraping via `wget` subprocess (bypasses Cloudflare TLS block) + Jsoup parsing |
+| City24    | Public REST JSON API — `api.city24.ee/et_EE/search/realties`          |
+| Rendin    | Firebase callable cloud function — POST to `cloudfunctions.net`        |
+
+Images are fetched from:
+- KV.ee → `img-kv.ee/image/object/43/…`
+- City24 → `static.img-city24.ee/object/24/…` (format code `24` discovered at runtime)
+- Rendin → various CDN fields (`imageUrl`, `coverImage`, `photos[]`, etc.)
+
+---
+
+## Running It
+
+### Prerequisites
+- Docker + Docker Compose
+- Node.js 18+ (for the frontend dev server)
+- Java 21 + Maven (only if running services locally instead of Docker)
+
+### Start everything with Docker
+
+```bash
+docker compose up -d
+```
+
+This starts all 9 services, PostgreSQL, RabbitMQ, MailHog, and the API Gateway.
+
+### Start the frontend dev server
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173)
+
+### Trigger a manual scrape
+
+```bash
+curl -X POST http://localhost:8080/api/scraper/trigger
+```
+
+---
+
+## Service Ports
 
 | Service               | Port  |
 |-----------------------|-------|
+| API Gateway           | 8080  |
 | scraper-service       | 8081  |
 | analytics-service     | 8082  |
 | user-service          | 8083  |
@@ -37,177 +136,55 @@ Aggregates rental listings from KV.ee, City24, and Rendin; tracks price trends b
 | landlord-service      | 8086  |
 | listing-service       | 8087  |
 | notification-service  | 8088  |
-| frontend (Vite)       | 5173  |
-| PostgreSQL (host)     | 5433  |
-| RabbitMQ AMQP         | 5672  |
+| Frontend (Vite)       | 5173  |
+| PostgreSQL            | 5433  |
 | RabbitMQ Management   | 15672 |
-| MailHog SMTP          | 1025  |
 | MailHog Web UI        | 8025  |
 
-## How to Run
+---
 
-### 1. Start infrastructure
-```bash
-docker-compose up -d
-```
+## Key API Endpoints (via Gateway at :8080)
 
-### 2. Run each microservice (separate terminals)
-```bash
-cd scraper-service && mvn spring-boot:run
-cd analytics-service && mvn spring-boot:run
-cd user-service && mvn spring-boot:run
-cd alert-service && mvn spring-boot:run
-cd neighborhood-service && mvn spring-boot:run
-cd landlord-service && mvn spring-boot:run
-cd listing-service && mvn spring-boot:run
-cd notification-service && mvn spring-boot:run
-```
+| Endpoint                        | Description                              |
+|---------------------------------|------------------------------------------|
+| `GET  /api/listings`            | All listings (filter: neighbourhood, price, size) |
+| `POST /api/scraper/trigger`     | Manually trigger a scrape run            |
+| `GET  /api/scraper/status`      | Last scrape time, counts, job status     |
+| `GET  /api/analytics/neighborhoods` | Avg rent & price/m² per neighbourhood |
+| `GET  /api/analytics/trends`    | Price trend over time                    |
+| `GET  /api/analytics/summary`   | City-wide stats                          |
+| `POST /api/users`               | Register user                            |
+| `POST /api/alerts`              | Create alert rule                        |
+| `GET  /api/neighborhoods`       | Neighbourhoods with scores               |
+| `GET  /api/landlords/{id}/reputation` | Landlord reputation score          |
 
-### 3. Run the frontend
-```bash
-cd frontend && npm install && npm run dev
-```
+---
 
-## Swagger UI
+## Dev Tools
 
-| Service              | URL                                  |
-|----------------------|--------------------------------------|
-| scraper-service      | http://localhost:8081/swagger-ui.html |
-| analytics-service    | http://localhost:8082/swagger-ui.html |
-| user-service         | http://localhost:8083/swagger-ui.html |
-| alert-service        | http://localhost:8084/swagger-ui.html |
-| neighborhood-service | http://localhost:8085/swagger-ui.html |
-| landlord-service     | http://localhost:8086/swagger-ui.html |
-| listing-service      | http://localhost:8087/swagger-ui.html |
-| notification-service | http://localhost:8088/swagger-ui.html |
+| Tool               | URL                                      |
+|--------------------|------------------------------------------|
+| Frontend           | http://localhost:5173                    |
+| RabbitMQ UI        | http://localhost:15672 (guest / guest)   |
+| MailHog            | http://localhost:8025                    |
+| Swagger (scraper)  | http://localhost:8081/swagger-ui.html    |
+| Swagger (analytics)| http://localhost:8082/swagger-ui.html    |
 
-## Useful URLs
-
-| Tool               | URL                          |
-|--------------------|------------------------------|
-| RabbitMQ Management| http://localhost:15672 (guest/guest) |
-| MailHog Web UI     | http://localhost:8025        |
-| Frontend           | http://localhost:5173        |
+---
 
 ## Project Structure
 
 ```
 uuriturg/
 ├── docker-compose.yml
-├── init-db/init.sql
-├── scraper-service/
-├── analytics-service/
-├── user-service/
-├── alert-service/
-├── neighborhood-service/
-├── landlord-service/
-├── listing-service/
-├── notification-service/
-└── frontend/
+├── api-gateway/
+├── scraper-service/          # KV.ee · City24 · Rendin scrapers
+├── analytics-service/        # Price trends, neighbourhood stats
+├── user-service/             # User accounts, saved searches
+├── alert-service/            # Alert rules & matching
+├── neighborhood-service/     # Neighbourhood data & reviews
+├── landlord-service/         # Landlord profiles & reviews
+├── listing-service/          # Managed listings & ownership claims
+├── notification-service/     # Email & in-app notifications
+└── frontend/                 # Vue 3 dashboard
 ```
-
-## Service API Summary
-
-### Scraper Service (8081) — /api/scraper
-| Endpoint | Method | Description |
-|---|---|---|
-| /listings | GET | All active listings (filters: neighborhood, maxPrice, minSize) |
-| /listings/latest | GET | Last 50 scraped listings |
-| /listings/{listingId} | GET | Single listing by ID |
-| /scraper/trigger | POST | Manually trigger a scrape run |
-| /scraper/status | GET | Last scrape time, total listings, job status |
-| /scraper/jobs | GET | Recent scrape job history |
-
-### Analytics Service (8082) — /api/analytics
-| Endpoint | Method | Description |
-|---|---|---|
-| /analytics/neighborhoods | GET | Avg price & price/m² per neighborhood |
-| /analytics/trends | GET | Price trend per day (params: neighborhood, days) |
-| /analytics/summary | GET | City-wide stats |
-| /analytics/cheapest | GET | Top 10 cheapest (filters: neighborhood, maxPrice) |
-| /analytics/compute | POST | Trigger analytics recomputation |
-
-### User Service (8083) — /api/users
-| Endpoint | Method | Description |
-|---|---|---|
-| /users | POST | Register new user |
-| /users/{userId} | GET | User profile |
-| /users/{userId} | PUT | Update profile |
-| /users/{userId} | DELETE | Deactivate account |
-| /users/validate/{userId} | GET | Validate user (internal) |
-| /users/{userId}/searches | GET | Saved searches |
-| /users/{userId}/searches | POST | Create saved search |
-
-### Alert Service (8084) — /api/alerts
-| Endpoint | Method | Description |
-|---|---|---|
-| /alerts | POST | Create alert rule |
-| /alerts | GET | List all alerts |
-| /alerts/{alertId} | GET | Get alert |
-| /alerts/{alertId} | DELETE | Delete alert |
-| /alerts/{alertId}/matches | GET | Alert matches |
-| /alerts/test/{alertId} | POST | Test fire alert |
-
-### Neighborhood Service (8085) — /api/neighborhoods
-| Endpoint | Method | Description |
-|---|---|---|
-| /neighborhoods | GET | All neighborhoods with scores |
-| /neighborhoods/{id} | GET | Neighborhood detail |
-| /neighborhoods/{id}/reviews | GET | Reviews |
-| /neighborhoods/{id}/reviews | POST | Submit review |
-| /neighborhoods/{id}/reviews/{reviewId} | DELETE | Delete review |
-| /neighborhoods/compare | GET | Compare neighborhoods |
-
-### Landlord Service (8086) — /api/landlords
-| Endpoint | Method | Description |
-|---|---|---|
-| /landlords | POST | Register landlord |
-| /landlords/{landlordId} | GET | Landlord profile |
-| /landlords/{landlordId}/reviews | GET | Tenant reviews |
-| /landlords/{landlordId}/reviews | POST | Submit review |
-| /landlords/{landlordId}/reviews/{reviewId}/respond | PUT | Respond to review |
-| /landlords/{landlordId}/reputation | GET | Reputation score |
-
-### Listing Service (8087) — /api/managed-listings
-| Endpoint | Method | Description |
-|---|---|---|
-| /managed-listings | POST | Create direct listing |
-| /managed-listings | GET | List managed listings |
-| /managed-listings/{id} | GET | Get listing |
-| /managed-listings/{id} | PUT | Update listing |
-| /managed-listings/claims | POST | Submit claim request |
-| /managed-listings/claims/{claimId} | GET | Claim status |
-| /managed-listings/claims/{claimId}/approve | PUT | Approve/reject claim |
-
-### Notification Service (8088) — /api/notifications
-| Endpoint | Method | Description |
-|---|---|---|
-| /notifications | POST | Request notification delivery |
-| /notifications/{id} | GET | Notification record |
-| /notifications/user/{userId} | GET | User notifications |
-| /notifications/{id}/status | GET | Delivery status |
-| /notifications/templates | GET | List templates |
-| /notifications/templates | POST | Create template |
-| /notifications/preferences/{userId} | GET | User preferences |
-| /notifications/preferences/{userId} | PUT | Update preferences |
-
-## RabbitMQ Events
-
-| Event | Exchange | Producer | Consumer |
-|---|---|---|---|
-| listing.new | listing.events | scraper-service | alert-service |
-| listing.claimed | listing.events | listing-service | notification-service |
-| review.posted | landlord.events | landlord-service | notification-service |
-
-## Database per Service
-
-| Service | Database |
-|---|---|
-| scraper-service | scraper_db |
-| analytics-service | analytics_db |
-| user-service | user_db |
-| alert-service | alert_db |
-| neighborhood-service | neighborhood_db |
-| landlord-service | landlord_db |
-| listing-service | listing_mgmt_db |
-| notification-service | notification_db |
