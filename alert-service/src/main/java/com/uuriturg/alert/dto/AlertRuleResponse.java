@@ -17,11 +17,17 @@ public class AlertRuleResponse {
     @Schema(description = "Alert rule ID")
     private UUID alertId;
 
-    @Schema(description = "Owner user ID")
-    private UUID userId;
+    @Schema(description = "Email address that will receive notifications", example = "you@example.com")
+    private String email;
+
+    @Schema(description = "Display name for this alert", example = "Budget flat in Karlova")
+    private String name;
 
     @Schema(description = "Neighborhood filter (null = any)", example = "Kesklinn")
     private String neighborhood;
+
+    @Schema(description = "Minimum price filter in EUR", example = "200")
+    private BigDecimal minPrice;
 
     @Schema(description = "Maximum price filter in EUR", example = "600")
     private BigDecimal maxPrice;

@@ -17,4 +17,9 @@ public class WebClientConfig {
     WebClient notificationWebClient(@Value("${notification.service.base-url}") String baseUrl) {
         return WebClient.builder().baseUrl(baseUrl).build();
     }
+
+    @Bean
+    WebClient scraperWebClient(@Value("${scraper.service.base-url}") String baseUrl) {
+        return WebClient.builder().baseUrl(baseUrl).build();
+    }
 }

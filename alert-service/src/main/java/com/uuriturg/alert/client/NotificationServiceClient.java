@@ -26,10 +26,10 @@ public class NotificationServiceClient {
                     .retrieve()
                     .bodyToMono(Void.class)
                     .block();
-            log.info("Notification sent to user {}", request.getRecipientUserId());
+            log.info("Notification sent to {}", request.getRecipientEmail());
         } catch (Exception e) {
-            log.warn("NotificationServiceClient: failed to send notification to user {}: {}",
-                    request.getRecipientUserId(), e.getMessage());
+            log.warn("NotificationServiceClient: failed to send notification to {}: {}",
+                    request.getRecipientEmail(), e.getMessage());
         }
     }
 }

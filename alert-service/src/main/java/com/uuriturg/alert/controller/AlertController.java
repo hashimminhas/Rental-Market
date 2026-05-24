@@ -96,6 +96,7 @@ public class AlertController {
     public ResponseEntity<AlertRuleResponse> testAlert(
             @Parameter(description = "Alert rule UUID to test") @PathVariable UUID alertId) {
         AlertRuleResponse rule = alertRuleService.getAlertById(alertId);
+        alertMatchService.testFire(alertId);
         return ResponseEntity.ok(rule);
     }
 }

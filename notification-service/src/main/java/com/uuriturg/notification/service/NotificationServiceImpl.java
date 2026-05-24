@@ -39,8 +39,11 @@ public class NotificationServiceImpl implements NotificationService {
             channel = NotificationChannel.EMAIL;
         }
 
-        UserProfileDto user = userServiceClient.getUserById(request.getRecipientUserId());
-        String recipientEmail = user != null ? user.getEmail() : null;
+        String recipientEmail = request.getRecipientEmail();
+        if (recipientEmail == null && request.getRecipientUserId() != null) {
+            UserProfileDto user = userServiceClient.getUserById(request.getRecipientUserId());
+            recipientEmail = user != null ? user.getEmail() : null;
+        }
 
         Notification notification = notificationRepository.save(Notification.builder()
                 .recipientUserId(request.getRecipientUserId())
@@ -156,6 +159,7 @@ public class NotificationServiceImpl implements NotificationService {
         }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("Üüriturg Alerts <hminhas377@gmail.com>");
             message.setTo(to);
             message.setSubject(subject);
             message.setText(body);

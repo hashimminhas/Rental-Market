@@ -1,10 +1,8 @@
 package com.uuriturg.alert.service;
 
-import com.uuriturg.alert.client.UserServiceClient;
 import com.uuriturg.alert.domain.AlertRule;
 import com.uuriturg.alert.dto.AlertRuleResponse;
 import com.uuriturg.alert.dto.CreateAlertRequest;
-import com.uuriturg.alert.dto.ValidateUserDto;
 import com.uuriturg.alert.exception.AlertNotFoundException;
 import com.uuriturg.alert.repository.IAlertRuleRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,24 +20,34 @@ import java.util.stream.StreamSupport;
 public class AlertRuleServiceImpl implements AlertRuleService {
 
     private final IAlertRuleRepository alertRuleRepository;
-    private final UserServiceClient userServiceClient;
+    private final AlertMatchService alertMatchService;
 
     @Override
     public AlertRuleResponse createAlert(CreateAlertRequest request) {
-        ValidateUserDto user = userServiceClient.validateUser(request.getUserId());
-        if (user == null || !Boolean.TRUE.equals(user.getActive())) {
-            throw new IllegalArgumentException("User not found or inactive: " + request.getUserId());
-        }
-
         AlertRule rule = AlertRule.builder()
-                .userId(request.getUserId())
+                .email(request.getEmail())
+                .name(request.getName())
                 .neighborhood(request.getNeighborhood())
+                .minPrice(request.getMinPrice())
                 .maxPrice(request.getMaxPrice())
                 .minSize(request.getMinSize())
                 .minRooms(request.getMinRooms())
                 .build();
 
-        return toResponse(alertRuleRepository.save(rule));
+        AlertRule saved = alertRuleRepository.save(rule);
+        log.info("Alert created for {} — alertId={}", saved.getEmail(), saved.getAlertId());
+
+        // scan existing listings in background — don't block the HTTP response
+        UUID alertId = saved.getAlertId();
+        Thread.ofVirtual().start(() -> {
+            try {
+                alertMatchService.scanExistingListings(alertId);
+            } catch (Exception e) {
+                log.warn("Initial scan failed for alert {}: {}", alertId, e.getMessage());
+            }
+        });
+
+        return toResponse(saved);
     }
 
     @Override
@@ -67,8 +75,10 @@ public class AlertRuleServiceImpl implements AlertRuleService {
     private AlertRuleResponse toResponse(AlertRule rule) {
         return AlertRuleResponse.builder()
                 .alertId(rule.getAlertId())
-                .userId(rule.getUserId())
+                .email(rule.getEmail())
+                .name(rule.getName())
                 .neighborhood(rule.getNeighborhood())
+                .minPrice(rule.getMinPrice())
                 .maxPrice(rule.getMaxPrice())
                 .minSize(rule.getMinSize())
                 .minRooms(rule.getMinRooms())

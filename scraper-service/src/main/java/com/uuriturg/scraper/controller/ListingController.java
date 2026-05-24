@@ -1,6 +1,7 @@
 package com.uuriturg.scraper.controller;
 
 import com.uuriturg.scraper.dto.ListingResponse;
+import com.uuriturg.scraper.dto.PriceHistoryResponse;
 import com.uuriturg.scraper.service.ListingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -66,5 +67,17 @@ public class ListingController {
     public ResponseEntity<ListingResponse> getListingById(
             @Parameter(description = "UUID of the listing") @PathVariable UUID listingId) {
         return ResponseEntity.ok(listingService.findById(listingId));
+    }
+
+    @Operation(summary = "Get price history for a listing", description = "Returns all recorded price snapshots for the given listing, ordered oldest first.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Price history (may be empty if never changed)"),
+            @ApiResponse(responseCode = "404", description = "Listing not found")
+    })
+    @GetMapping("/{listingId}/price-history")
+    public ResponseEntity<List<PriceHistoryResponse>> getPriceHistory(
+            @Parameter(description = "UUID of the listing") @PathVariable UUID listingId) {
+        listingService.findById(listingId);
+        return ResponseEntity.ok(listingService.getPriceHistory(listingId));
     }
 }

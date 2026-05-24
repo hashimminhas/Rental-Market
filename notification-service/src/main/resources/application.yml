@@ -20,16 +20,17 @@ spring:
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
-    username: ""
-    password: ""
+    host: smtp.gmail.com
+    port: 587
+    username: hminhas377@gmail.com
+    password: vnkzjizsfyabpugh
     properties:
       mail:
         smtp:
-          auth: false
+          auth: true
           starttls:
-            enable: false
+            enable: true
+            required: true
 
 springdoc:
   swagger-ui:

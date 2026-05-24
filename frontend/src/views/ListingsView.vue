@@ -9,14 +9,17 @@
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="view-toggle">
-          <button :class="['vt-btn', view==='grid'&&'vt-on']" @click="view='grid'">
+          <button :class="['vt-btn', view==='grid'&&'vt-on']" @click="view='grid'" title="Grid view">
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           </button>
-          <button :class="['vt-btn', view==='list'&&'vt-on']" @click="view='list'">
+          <button :class="['vt-btn', view==='list'&&'vt-on']" @click="view='list'" title="List view">
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="2" rx="1"/><rect x="3" y="11" width="18" height="2" rx="1"/><rect x="3" y="18" width="18" height="2" rx="1"/></svg>
           </button>
+          <button :class="['vt-btn', view==='map'&&'vt-on']" @click="view='map'" title="Map view">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
         </div>
-        <button class="btn btn-outline btn-sm" @click="triggerScrape" :disabled="scraping">
+        <button v-if="isAdmin" class="btn btn-outline btn-sm" @click="triggerScrape" :disabled="scraping">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           {{ scraping ? 'Refreshing…' : 'Refresh listings' }}
         </button>
@@ -24,47 +27,49 @@
     </div>
 
     <!-- Filters -->
-    <div class="card" style="padding:16px 20px">
-      <div class="filter-row">
-        <div class="fsearch">
-          <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2" viewBox="0 0 24 24" class="fsi"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input v-model="q" class="finput" placeholder="Search listings…" />
-        </div>
-        <select v-model="fNeigh" class="form-select fsel">
-          <option value="">All neighborhoods</option>
-          <option v-for="n in neighborhoods" :key="n" :value="n">{{ n }}</option>
-        </select>
-        <select v-model="fSrc" class="form-select fsel">
-          <option value="">All sources</option>
-          <option value="KV_EE">KV.EE</option>
-          <option value="CITY24">City24</option>
-          <option value="KINNISVARA24">Kinnisvara24</option>
-          <option value="RENDIN">Rendin</option>
-          <option value="MAAMET">Maa-amet</option>
-        </select>
-        <div class="frange"><span class="frlbl">Max €</span><input v-model.number="fMaxP" type="number" class="finput frinp" placeholder="1200" /></div>
-        <div class="frange"><span class="frlbl">Min m²</span><input v-model.number="fMinS" type="number" class="finput frinp" placeholder="30" /></div>
+    <div class="filter-bar">
+      <div class="fb-search">
+        <svg width="13" height="13" fill="none" stroke="#94a3b8" stroke-width="2" viewBox="0 0 24 24" class="fb-si"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input v-model="q" class="fb-input" placeholder="Search title, street…" />
       </div>
-      <div class="filter-row" style="margin-top:10px">
-        <select v-model="fRooms" class="form-select fsel">
-          <option value="">Any rooms</option>
-          <option value="1">1 room</option>
-          <option value="2">2 rooms</option>
-          <option value="3">3 rooms</option>
-          <option value="4">4+ rooms</option>
-        </select>
-        <select v-model="sortBy" class="form-select fsel">
-          <option value="newest">Newest first</option>
-          <option value="price_asc">Price: low → high</option>
-          <option value="price_desc">Price: high → low</option>
-          <option value="size_asc">Size: small → large</option>
-          <option value="ppsqm">€/m²: low → high</option>
-        </select>
-        <button v-if="hasFilters" class="btn btn-ghost btn-sm" @click="clearF">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          Clear filters
-        </button>
-      </div>
+      <div class="fb-divider"></div>
+      <select v-model="fNeigh" class="fb-select">
+        <option value="">All neighborhoods</option>
+        <option v-for="n in neighborhoods" :key="n" :value="n">{{ n }}</option>
+      </select>
+      <div class="fb-divider"></div>
+      <select v-model="fSrc" class="fb-select">
+        <option value="">All sources</option>
+        <option value="KV_EE">KV.EE</option>
+        <option value="CITY24">City24</option>
+        <option value="KINNISVARA24">Kinnisvara24</option>
+        <option value="RENDIN">Rendin</option>
+        <option value="MAAMET">Maa-amet</option>
+      </select>
+      <div class="fb-divider"></div>
+      <input v-model.number="fMaxP" type="number" class="fb-num" placeholder="Max €" />
+      <div class="fb-divider"></div>
+      <input v-model.number="fMinS" type="number" class="fb-num" placeholder="Min m²" />
+      <div class="fb-divider"></div>
+      <select v-model="fRooms" class="fb-select fb-select-sm">
+        <option value="">Any rooms</option>
+        <option value="1">1 room</option>
+        <option value="2">2 rooms</option>
+        <option value="3">3 rooms</option>
+        <option value="4">4+ rooms</option>
+      </select>
+      <div class="fb-divider"></div>
+      <select v-model="sortBy" class="fb-select fb-select-sm">
+        <option value="mixed">Mixed sources</option>
+        <option value="newest">Newest first</option>
+        <option value="price_asc">Price ↑</option>
+        <option value="price_desc">Price ↓</option>
+        <option value="size_asc">Size ↑</option>
+        <option value="ppsqm">€/m² ↑</option>
+      </select>
+      <button v-if="hasFilters" class="fb-clear" @click="clearF" title="Clear filters">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
 
     <!-- States -->
@@ -113,7 +118,6 @@
         <div class="lcard-chips">
           <span class="chip">{{ l.size ? l.size+' m²' : '—' }}</span>
           <span class="chip">{{ l.rooms ? l.rooms+(l.rooms===1?' room':' rooms') : '—' }}</span>
-          <span class="chip" v-if="l.pricePerSqm">€{{ fmtD(l.pricePerSqm) }}/m²</span>
         </div>
         <div class="lcard-foot">
           <span class="lcard-age">{{ ago(l.scrapedAt) }}</span>
@@ -151,8 +155,18 @@
       </table>
     </div>
 
+    <!-- Map view -->
+    <div v-if="view==='map'" class="map-wrap">
+      <div ref="mapEl" class="map-box"></div>
+      <div v-if="mappedListings.length===0" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+        <div class="card" style="padding:20px 28px;text-align:center">
+          <p style="color:var(--muted);font-size:.85rem">No listings with coordinates match your filters.<br>City24 listings have map data; KV.ee and Rendin do not.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Pagination -->
-    <div v-if="totalPages>1" style="display:flex;align-items:center;justify-content:center;gap:14px">
+    <div v-if="view!=='map' && totalPages>1" style="display:flex;align-items:center;justify-content:center;gap:14px">
       <button class="btn btn-outline btn-sm" :disabled="pg===1" @click="pg--">← Prev</button>
       <span style="font-size:.85rem;color:var(--muted)">Page {{ pg }} of {{ totalPages }}</span>
       <button class="btn btn-outline btn-sm" :disabled="pg===totalPages" @click="pg++">Next →</button>
@@ -161,7 +175,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useAuth } from '../composables/useAuth.js'
+const { isAdmin } = useAuth()
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
+  iconUrl:       new URL('leaflet/dist/images/marker-icon.png',    import.meta.url).href,
+  shadowUrl:     new URL('leaflet/dist/images/marker-shadow.png',  import.meta.url).href,
+})
 
 const listings = ref([])
 const loading  = ref(true)
@@ -169,9 +194,12 @@ const error    = ref(null)
 const scraping = ref(false)
 const view     = ref('grid')
 const pg       = ref(1)
-const SIZE     = 12
+const SIZE     = 50
 const saved    = ref(new Set())
 const imgError = ref(new Set())
+const mapEl    = ref(null)
+let leafletMap = null
+const mapMarkers = []
 
 const q       = ref('')
 const fNeigh  = ref('')
@@ -179,10 +207,11 @@ const fSrc    = ref('')
 const fMaxP   = ref(null)
 const fMinS   = ref(null)
 const fRooms  = ref('')
-const sortBy  = ref('newest')
+const sortBy  = ref('mixed')
 
-const neighborhoods = computed(() => [...new Set(listings.value.map(l=>l.neighborhood).filter(Boolean))].sort())
-const hasFilters    = computed(() => !!(q.value||fNeigh.value||fSrc.value||fMaxP.value||fMinS.value||fRooms.value))
+const neighborhoods  = computed(() => [...new Set(listings.value.map(l=>l.neighborhood).filter(Boolean))].sort())
+const hasFilters     = computed(() => !!(q.value||fNeigh.value||fSrc.value||fMaxP.value||fMinS.value||fRooms.value))
+const mappedListings = computed(() => filteredListings.value.filter(l => l.latitude && l.longitude))
 
 const filteredListings = computed(() => {
   let a = listings.value.filter(l => l.isActive !== false)
@@ -193,6 +222,15 @@ const filteredListings = computed(() => {
   if (fMinS.value)  a = a.filter(l => l.size!=null  && l.size>=fMinS.value)
   if (fRooms.value) { const r=parseInt(fRooms.value); a = a.filter(l => r===4?(l.rooms||0)>=4:l.rooms===r) }
   switch(sortBy.value){
+    case 'mixed': {
+      const groups = {}
+      a.forEach(l => { (groups[l.source] = groups[l.source] || []).push(l) })
+      const arrays = Object.values(groups)
+      const result = []
+      const max = Math.max(...arrays.map(arr => arr.length))
+      for (let i = 0; i < max; i++) arrays.forEach(arr => { if (arr[i]) result.push(arr[i]) })
+      return result
+    }
     case 'price_asc':  return [...a].sort((x,y)=>(x.price||0)-(y.price||0))
     case 'price_desc': return [...a].sort((x,y)=>(y.price||0)-(x.price||0))
     case 'size_asc':   return [...a].sort((x,y)=>(x.size||0)-(y.size||0))
@@ -205,6 +243,15 @@ const totalPages = computed(() => Math.max(1, Math.ceil(filteredListings.value.l
 const paged      = computed(() => { const s=(pg.value-1)*SIZE; return filteredListings.value.slice(s,s+SIZE) })
 
 watch([q,fNeigh,fSrc,fMaxP,fMinS,fRooms,sortBy], ()=>{ pg.value=1 })
+
+watch(view, async (v) => {
+  if (v === 'map') {
+    await nextTick()
+    initLeafletMap()
+    rebuildMapMarkers()
+  }
+})
+watch(mappedListings, () => { if (view.value==='map') rebuildMapMarkers() })
 
 function clearF(){ q.value=''; fNeigh.value=''; fSrc.value=''; fMaxP.value=null; fMinS.value=null; fRooms.value='' }
 function srcLabel(s){ const m={KV_EE:'KV.EE',CITY24:'City24',KINNISVARA24:'K24',RENDIN:'Rendin',MAAMET:'Maa-amet'}; return m[s]||s||'?' }
@@ -225,6 +272,30 @@ function imgKey(l){ return String(l.listingId || l.externalId || l.url || l.titl
 function showImage(l){ return !!(l.imageUrl && !imgError.value.has(imgKey(l))) }
 function markImgError(l){ const s=new Set(imgError.value); s.add(imgKey(l)); imgError.value=s }
 
+function initLeafletMap() {
+  if (!mapEl.value || leafletMap) return
+  leafletMap = L.map(mapEl.value).setView([58.3776, 26.7290], 13)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(leafletMap)
+}
+
+function rebuildMapMarkers() {
+  mapMarkers.forEach(m => m.remove())
+  mapMarkers.length = 0
+  if (!leafletMap) return
+  mappedListings.value.forEach(l => {
+    const m = L.marker([l.latitude, l.longitude])
+      .bindPopup(`<strong>€${fmt(l.price)}/mo</strong><br><small>${l.title||'Apartment'}</small>`, { maxWidth: 220 })
+      .addTo(leafletMap)
+    mapMarkers.push(m)
+  })
+  if (mapMarkers.length > 0) {
+    leafletMap.fitBounds(L.featureGroup(mapMarkers).getBounds().pad(0.12))
+  }
+}
+
 async function load(){
   loading.value=true; error.value=null
   try{
@@ -243,6 +314,7 @@ async function triggerScrape(){
 }
 
 onMounted(load)
+onUnmounted(() => { if (leafletMap) { leafletMap.remove(); leafletMap = null } })
 </script>
 
 <style scoped>
@@ -251,15 +323,24 @@ onMounted(load)
 .page-title  { font-size:1.375rem; font-weight:700; color:var(--text); margin:0 0 4px; }
 .page-sub    { font-size:.875rem; color:var(--muted); margin:0; }
 
-.filter-row  { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.fsearch     { position:relative; flex:1; min-width:200px; }
-.fsi         { position:absolute; left:10px; top:50%; transform:translateY(-50%); pointer-events:none; }
-.finput      { width:100%; padding:7px 10px 7px 32px; border:1px solid var(--border); border-radius:var(--r); font-size:.85rem; color:var(--text); background:var(--bg); box-sizing:border-box; }
-.finput:focus{ outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(13,148,136,.12); }
-.fsel        { min-width:140px; font-size:.85rem; }
-.frange      { display:flex; align-items:center; gap:6px; }
-.frlbl       { font-size:.8rem; color:var(--muted); white-space:nowrap; }
-.frinp       { padding-left:10px; max-width:85px; min-width:0; }
+.filter-bar {
+  display:flex; align-items:center;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:var(--r); box-shadow:var(--shadow);
+  overflow:hidden; height:40px;
+}
+.fb-search   { position:relative; flex:1 1 180px; min-width:0; display:flex; align-items:center; height:100%; }
+.fb-si       { position:absolute; left:12px; pointer-events:none; flex-shrink:0; }
+.fb-input    { width:100%; height:100%; padding:0 10px 0 34px; border:none; outline:none; font-size:.85rem; color:var(--text); background:transparent; font-family:inherit; }
+.fb-input::placeholder { color:var(--light); }
+.fb-select   { flex:0 0 auto; height:100%; padding:0 26px 0 10px; border:none; outline:none; font-size:.82rem; color:var(--text); background:transparent; font-family:inherit; appearance:none; cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 7px center; min-width:110px; }
+.fb-select-sm { min-width:90px; }
+.fb-select:focus { background-color:var(--primary-hover); }
+.fb-num      { flex:0 0 80px; height:100%; padding:0 8px; border:none; outline:none; font-size:.82rem; color:var(--text); background:transparent; font-family:inherit; width:80px; }
+.fb-num::placeholder { color:var(--light); }
+.fb-divider  { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+.fb-clear    { flex-shrink:0; width:36px; height:100%; border:none; background:transparent; cursor:pointer; color:var(--muted); display:flex; align-items:center; justify-content:center; }
+.fb-clear:hover { background:#fee2e2; color:var(--red); }
 
 .view-toggle { display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
 .vt-btn      { padding:6px 9px; background:#fff; border:none; cursor:pointer; color:var(--muted); display:flex; align-items:center; }
@@ -297,4 +378,19 @@ onMounted(load)
 
 .td-clip    { max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.85rem; }
 .badge-demo { background:#fef3c7; color:#92400e; font-size:10px; border:1px solid #fde68a; }
+
+/* Map view */
+.map-wrap { position:relative; height:calc(100vh - 280px); min-height:420px; border-radius:var(--r); overflow:hidden; border:1px solid var(--border); }
+.map-box  { width:100%; height:100%; }
+
+/* Mobile */
+@media(max-width:768px) {
+  .page-hd   { flex-direction:column; gap:10px; }
+  .filter-bar{ height:auto; flex-wrap:wrap; padding:6px 8px; gap:0; }
+  .fb-divider{ display:none; }
+  .fb-search { flex:1 1 100%; height:34px; border-bottom:1px solid var(--border); }
+  .fb-select, .fb-num { height:32px; font-size:.82rem; }
+  .listing-grid { grid-template-columns:1fr; }
+  .map-wrap  { height:65vmax; min-height:320px; }
+}
 </style>
