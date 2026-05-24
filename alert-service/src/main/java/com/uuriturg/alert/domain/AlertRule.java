@@ -20,11 +20,14 @@ public class AlertRule {
     private UUID alertId;
 
     @Column(nullable = false)
-    private UUID userId;
+    private String email;
+
+    private String name;
 
     private String neighborhood;
 
-    @Column(nullable = false)
+    private BigDecimal minPrice;
+
     private BigDecimal maxPrice;
 
     private BigDecimal minSize;

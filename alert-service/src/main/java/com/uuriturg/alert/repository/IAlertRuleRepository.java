@@ -10,7 +10,5 @@ public interface IAlertRuleRepository extends CrudRepository<AlertRule, UUID> {
 
     List<AlertRule> findByIsActiveTrue();
 
-    List<AlertRule> findByUserId(UUID userId);
-
-    List<AlertRule> findByUserIdAndIsActiveTrue(UUID userId);
+    List<AlertRule> findByEmail(String email);
 }

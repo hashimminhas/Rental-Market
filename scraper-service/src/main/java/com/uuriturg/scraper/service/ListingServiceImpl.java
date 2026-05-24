@@ -1,9 +1,12 @@
 package com.uuriturg.scraper.service;
 
 import com.uuriturg.scraper.domain.Listing;
+import com.uuriturg.scraper.domain.PriceHistory;
 import com.uuriturg.scraper.dto.ListingResponse;
+import com.uuriturg.scraper.dto.PriceHistoryResponse;
 import com.uuriturg.scraper.exception.ListingNotFoundException;
 import com.uuriturg.scraper.repository.IListingRepository;
+import com.uuriturg.scraper.repository.IPriceHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +23,7 @@ import java.util.stream.StreamSupport;
 public class ListingServiceImpl implements ListingService {
 
     private final IListingRepository listingRepository;
+    private final IPriceHistoryRepository priceHistoryRepository;
 
     @Override
     public List<ListingResponse> findAll(String neighborhood, BigDecimal maxPrice, BigDecimal minSize) {
@@ -58,6 +62,8 @@ public class ListingServiceImpl implements ListingService {
 
         if (existing.isPresent()) {
             Listing toUpdate = existing.get();
+            boolean priceChanged = incoming.getPrice() != null &&
+                    (toUpdate.getPrice() == null || toUpdate.getPrice().compareTo(incoming.getPrice()) != 0);
             toUpdate.setPrice(incoming.getPrice());
             toUpdate.setIsActive(true);
             toUpdate.setScrapedAt(LocalDateTime.now());
@@ -70,12 +76,16 @@ public class ListingServiceImpl implements ListingService {
             toUpdate.setStreet(incoming.getStreet());
             toUpdate.setCity(incoming.getCity());
             toUpdate.setSynthetic(incoming.getSynthetic());
+            if (incoming.getLatitude() != null)  toUpdate.setLatitude(incoming.getLatitude());
+            if (incoming.getLongitude() != null) toUpdate.setLongitude(incoming.getLongitude());
             listingRepository.save(toUpdate);
+            if (priceChanged) recordPrice(toUpdate.getListingId(), incoming.getPrice());
             return false;
         }
 
         incoming.setScrapedAt(LocalDateTime.now());
         listingRepository.save(incoming);
+        if (incoming.getPrice() != null) recordPrice(incoming.getListingId(), incoming.getPrice());
         return true;
     }
 
@@ -85,6 +95,25 @@ public class ListingServiceImpl implements ListingService {
                 .stream(listingRepository.findAll().spliterator(), false)
                 .filter(l -> Boolean.TRUE.equals(l.getIsActive()))
                 .count();
+    }
+
+    @Override
+    public List<PriceHistoryResponse> getPriceHistory(UUID listingId) {
+        return priceHistoryRepository.findByListingIdOrderByRecordedAtAsc(listingId)
+                .stream()
+                .map(ph -> PriceHistoryResponse.builder()
+                        .price(ph.getPrice())
+                        .recordedAt(ph.getRecordedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private void recordPrice(UUID listingId, BigDecimal price) {
+        priceHistoryRepository.save(PriceHistory.builder()
+                .listingId(listingId)
+                .price(price)
+                .recordedAt(LocalDateTime.now())
+                .build());
     }
 
     private ListingResponse toResponse(Listing listing) {
@@ -103,6 +132,8 @@ public class ListingServiceImpl implements ListingService {
                 .postalCode(listing.getPostalCode())
                 .url(listing.getUrl())
                 .imageUrl(listing.getImageUrl())
+                .latitude(listing.getLatitude())
+                .longitude(listing.getLongitude())
                 .scrapedAt(listing.getScrapedAt())
                 .isActive(listing.getIsActive())
                 .createdAt(listing.getCreatedAt())

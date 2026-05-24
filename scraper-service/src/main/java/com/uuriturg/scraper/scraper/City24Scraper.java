@@ -166,6 +166,8 @@ public class City24Scraper implements RentalScraper {
         double priceVal = n.path("price").asDouble(0);
         double sizeVal  = n.path("property_size").asDouble(0);
         int rooms       = n.path("room_count").asInt(0);
+        double lat      = n.path("latitude").asDouble(0);
+        double lng      = n.path("longitude").asDouble(0);
 
         String title = rooms + "-room apartment" + (neighborhood != null ? " in " + neighborhood : "")
                 + (fullStreet.isBlank() ? "" : ", " + fullStreet);
@@ -182,6 +184,9 @@ public class City24Scraper implements RentalScraper {
                 .city("Tartu")
                 .url(url)
                 .imageUrl(resolveImageUrl(n))
+                .latitude(lat != 0 ? lat : null)
+                .longitude(lng != 0 ? lng : null)
+                .synthetic(false)
                 .build();
     }
 

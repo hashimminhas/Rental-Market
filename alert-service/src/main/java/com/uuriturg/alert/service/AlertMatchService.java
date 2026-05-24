@@ -11,4 +11,8 @@ public interface AlertMatchService {
     void evaluateAndMatch(ListingEventDto event);
 
     List<AlertMatchResponse> getMatchesForAlert(UUID alertId);
+
+    void testFire(UUID alertId);
+
+    void scanExistingListings(UUID alertId);
 }

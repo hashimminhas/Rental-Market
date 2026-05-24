@@ -2,6 +2,7 @@ package com.uuriturg.scraper.service;
 
 import com.uuriturg.scraper.domain.Listing;
 import com.uuriturg.scraper.dto.ListingResponse;
+import com.uuriturg.scraper.dto.PriceHistoryResponse;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -18,4 +19,6 @@ public interface ListingService {
     boolean saveOrUpdate(Listing listing);
 
     long countActive();
+
+    List<PriceHistoryResponse> getPriceHistory(UUID listingId);
 }

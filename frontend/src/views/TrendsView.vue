@@ -38,13 +38,6 @@
         <div class="sc-sub">across all listings</div>
       </div>
       <div class="stat-card">
-        <div class="sc-header"><span class="sc-label">Avg €/m²</span>
-          <span class="sc-icon" style="background:#eff6ff"><svg width="15" height="15" fill="none" stroke="#3b82f6" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
-        </div>
-        <div class="sc-value">{{ sum.averagePricePerSqm ? '€'+fmtD(sum.averagePricePerSqm) : '—' }}</div>
-        <div class="sc-sub">per square metre</div>
-      </div>
-      <div class="stat-card">
         <div class="sc-header"><span class="sc-label">Cheapest</span>
           <span class="sc-icon" style="background:#f0fdf4"><svg width="15" height="15" fill="none" stroke="#16a34a" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
         </div>
@@ -67,16 +60,10 @@
       </div>
     </div>
 
-    <!-- Two line charts -->
-    <div class="two-col">
-      <div class="card" style="padding:20px">
-        <div class="ch-hd"><span class="ch-title">Average rent over time</span><span class="ch-sub">€/month</span></div>
-        <div class="ch-wrap"><canvas ref="c1"></canvas></div>
-      </div>
-      <div class="card" style="padding:20px">
-        <div class="ch-hd"><span class="ch-title">Price per m² over time</span><span class="ch-sub">€/m²</span></div>
-        <div class="ch-wrap"><canvas ref="c2"></canvas></div>
-      </div>
+    <!-- Single line chart -->
+    <div class="card" style="padding:20px">
+      <div class="ch-hd"><span class="ch-title">Average rent over time</span><span class="ch-sub">€/month</span></div>
+      <div class="ch-wrap"><canvas ref="c1"></canvas></div>
     </div>
 
     <!-- Bar chart + insights -->

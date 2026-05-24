@@ -56,6 +56,12 @@ public class ListingResponse {
     @Schema(description = "Thumbnail image URL for the listing")
     private String imageUrl;
 
+    @Schema(description = "Latitude coordinate (available for City24 listings)", example = "58.3776")
+    private Double latitude;
+
+    @Schema(description = "Longitude coordinate (available for City24 listings)", example = "26.7290")
+    private Double longitude;
+
     @Schema(description = "Timestamp when this listing was last scraped")
     private LocalDateTime scrapedAt;
 

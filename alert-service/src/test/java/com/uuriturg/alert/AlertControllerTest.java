@@ -41,12 +41,12 @@ class AlertControllerTest {
     private AlertMatchService alertMatchService;
 
     private final UUID alertId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-    private final UUID userId  = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     private AlertRuleResponse sampleRule() {
         return AlertRuleResponse.builder()
                 .alertId(alertId)
-                .userId(userId)
+                .email("test@example.com")
+                .name("Test alert")
                 .neighborhood("Kesklinn")
                 .maxPrice(new BigDecimal("600"))
                 .minSize(new BigDecimal("40"))
@@ -59,7 +59,8 @@ class AlertControllerTest {
     @Test
     void createAlert_returns200() throws Exception {
         CreateAlertRequest req = CreateAlertRequest.builder()
-                .userId(userId)
+                .email("test@example.com")
+                .name("Test alert")
                 .neighborhood("Kesklinn")
                 .maxPrice(new BigDecimal("600"))
                 .minSize(new BigDecimal("40"))
@@ -78,14 +79,10 @@ class AlertControllerTest {
     }
 
     @Test
-    void createAlert_returns400_whenUserInvalid() throws Exception {
+    void createAlert_returns400_whenEmailMissing() throws Exception {
         CreateAlertRequest req = CreateAlertRequest.builder()
-                .userId(userId)
                 .maxPrice(new BigDecimal("600"))
                 .build();
-
-        when(alertRuleService.createAlert(any()))
-                .thenThrow(new IllegalArgumentException("User not found or inactive: " + userId));
 
         mockMvc.perform(post("/alerts")
                         .contentType(MediaType.APPLICATION_JSON)

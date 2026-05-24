@@ -34,6 +34,10 @@ notification:
   service:
     base-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8088}
 
+scraper:
+  service:
+    base-url: ${SCRAPER_SERVICE_URL:http://localhost:8081}
+
 messaging:
   exchange:
     listings: listing.events

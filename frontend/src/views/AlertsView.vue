@@ -14,8 +14,13 @@
         <div class="form-card-title">{{ editId ? 'Edit alert' : 'Create new alert' }}</div>
         <form @submit.prevent="save">
           <div class="form-group">
-            <label class="form-label">Alert name *</label>
-            <input v-model="f.name" class="form-input" placeholder="e.g. Budget flat in Karlova" required />
+            <label class="form-label">Your email *</label>
+            <input v-model="f.email" type="email" class="form-input" placeholder="you@example.com" required />
+            <div class="form-hint">We'll email you when a match is found. No account needed.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Alert name</label>
+            <input v-model="f.name" class="form-input" placeholder="e.g. Budget flat in Karlova" />
           </div>
           <div class="form-group">
             <label class="form-label">Neighborhood</label>
@@ -40,19 +45,15 @@
               <input v-model.number="f.minSize" type="number" class="form-input" placeholder="0" min="0" />
             </div>
             <div class="form-group">
-              <label class="form-label">Rooms</label>
-              <select v-model.number="f.rooms" class="form-select">
+              <label class="form-label">Min rooms</label>
+              <select v-model.number="f.minRooms" class="form-select">
                 <option :value="null">Any</option>
-                <option :value="1">1</option>
-                <option :value="2">2</option>
-                <option :value="3">3</option>
+                <option :value="1">1+</option>
+                <option :value="2">2+</option>
+                <option :value="3">3+</option>
                 <option :value="4">4+</option>
               </select>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Notification email</label>
-            <input v-model="f.email" type="email" class="form-input" placeholder="you@example.com" />
           </div>
           <div v-if="formErr" style="color:#dc2626;font-size:.82rem;margin-bottom:8px">{{ formErr }}</div>
           <div v-if="formOk"  style="color:#16a34a;font-size:.82rem;margin-bottom:8px">{{ formOk }}</div>
@@ -95,7 +96,7 @@
               <span class="chip" v-if="a.neighborhood">{{ a.neighborhood }}</span>
               <span class="chip" v-if="a.minPrice||a.maxPrice">€{{ a.minPrice||0 }} – {{ a.maxPrice?'€'+a.maxPrice:'∞' }}</span>
               <span class="chip" v-if="a.minSize">≥ {{ a.minSize }} m²</span>
-              <span class="chip" v-if="a.rooms">{{ a.rooms }}{{ a.rooms>=4?'+':'' }} rooms</span>
+              <span class="chip" v-if="a.minRooms">{{ a.minRooms }}+ rooms</span>
               <span class="chip" v-if="!a.neighborhood&&!a.minPrice&&!a.maxPrice&&!a.rooms">All listings</span>
             </div>
             <div class="acard-ft">
@@ -124,7 +125,7 @@ const editId  = ref(null)
 const formErr = ref('')
 const formOk  = ref('')
 
-const blank = () => ({name:'',neighborhood:'',minPrice:null,maxPrice:null,minSize:null,rooms:null,email:''})
+const blank = () => ({name:'',email:'',neighborhood:'',minPrice:null,maxPrice:null,minSize:null,minRooms:null})
 const f = ref(blank())
 
 async function load(){
@@ -135,7 +136,7 @@ async function load(){
 
 async function save(){
   saving.value=true; formErr.value=''; formOk.value=''
-  const body={name:f.value.name,neighborhood:f.value.neighborhood||null,minPrice:f.value.minPrice||null,maxPrice:f.value.maxPrice||null,minSize:f.value.minSize||null,rooms:f.value.rooms||null,email:f.value.email||null}
+  const body={email:f.value.email,name:f.value.name||null,neighborhood:f.value.neighborhood||null,minPrice:f.value.minPrice||null,maxPrice:f.value.maxPrice||null,minSize:f.value.minSize||null,minRooms:f.value.minRooms||null}
   try{
     const url = editId.value ? `/api/alerts/${editId.value}` : '/api/alerts'
     const method = editId.value ? 'PUT' : 'POST'
@@ -148,7 +149,7 @@ async function save(){
 
 function startEdit(a){
   editId.value=a.alertId
-  f.value={name:a.name||'',neighborhood:a.neighborhood||'',minPrice:a.minPrice,maxPrice:a.maxPrice,minSize:a.minSize,rooms:a.rooms,email:a.email||''}
+  f.value={email:a.email||'',name:a.name||'',neighborhood:a.neighborhood||'',minPrice:a.minPrice,maxPrice:a.maxPrice,minSize:a.minSize,minRooms:a.minRooms}
 }
 function cancelEdit(){ editId.value=null; f.value=blank(); formErr.value='' }
 
@@ -174,6 +175,7 @@ onMounted(load)
 
 .form-card       { padding:22px; }
 .form-card-title { font-size:1rem; font-weight:600; color:var(--text); margin-bottom:18px; }
+.form-hint       { font-size:.75rem; color:var(--muted); margin-top:4px; }
 
 .alerts-col { display:flex; flex-direction:column; gap:0; }
 .alert-list { display:flex; flex-direction:column; gap:12px; }

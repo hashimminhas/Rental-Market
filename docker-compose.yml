@@ -143,6 +143,7 @@ services:
       RABBITMQ_PORT: 5672
       USER_SERVICE_URL: http://user-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8088
+      SCRAPER_SERVICE_URL: http://scraper-service:8081
     depends_on:
       postgres:
         condition: service_healthy

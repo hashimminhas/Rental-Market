@@ -53,6 +53,10 @@ public class Listing {
     @Column(length = 1000)
     private String imageUrl;
 
+    private Double latitude;
+
+    private Double longitude;
+
     private LocalDateTime scrapedAt;
 
     private Boolean isActive;

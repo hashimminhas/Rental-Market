@@ -1,11 +1,11 @@
 package com.uuriturg.alert.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Data
 @Builder
@@ -14,14 +14,20 @@ import java.util.UUID;
 @Schema(description = "Request body for creating a new alert rule")
 public class CreateAlertRequest {
 
-    @NotNull
-    @Schema(description = "ID of the user who owns this alert", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
-    private UUID userId;
+    @NotBlank
+    @Email
+    @Schema(description = "Email address to notify when a match is found", example = "you@example.com")
+    private String email;
 
-    @Schema(description = "Neighborhood filter — null means any neighborhood", example = "Kesklinn")
+    @Schema(description = "Display name for this alert", example = "Budget flat in Karlova")
+    private String name;
+
+    @Schema(description = "Neighborhood filter — null means any", example = "Kesklinn")
     private String neighborhood;
 
-    @NotNull
+    @Schema(description = "Minimum monthly rent in EUR", example = "200")
+    private BigDecimal minPrice;
+
     @Schema(description = "Maximum monthly rent in EUR", example = "600")
     private BigDecimal maxPrice;
 
