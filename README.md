@@ -1,190 +1,134 @@
 # Üüriturg — Tartu Rental Market Monitor
 
-A personal project I built to track the Tartu (Estonia) rental apartment market in real time.  
-It automatically scrapes listings from the three main Estonian rental platforms, aggregates them into a single dashboard, tracks price trends by neighbourhood, and can notify you when a new listing matches your criteria.
+A real-time rental aggregator for Tartu, Estonia. Automatically scrapes listings from KV.ee, City24, and Rendin, deduplicates them, tracks price trends by neighbourhood, and sends email alerts when a matching listing appears.
 
----
-
-## What It Does
-
-- **Scrapes** KV.ee, City24, and Rendin every few hours — no manual searching required
-- **Deduplicates** listings so the same apartment never shows twice
-- **Shows photos** pulled directly from each platform's image CDN
-- **Tracks price trends** over time per Tartu neighbourhood (Kesklinn, Karlova, Annelinn, Supilinn, etc.)
-- **Alerts** — create a filter (price range, size, neighbourhood) and get notified when a match appears
-- **Landlord profiles** — see reviews and reputation scores for landlords
-- **Neighbourhood comparison** — compare average rents, price per m², and community scores
-
----
-
-## Current Data (live)
-
-| Source      | Listings | Images |
-|-------------|----------|--------|
-| KV.ee       | 150      | Yes    |
-| City24      | 137      | Yes    |
-| Rendin      | 51       | Yes    |
-| **Total**   | **338**  | —      |
-
-All listings are real scraped data — no demo or seed listings.  
-Data covers rental apartments in Tartu, Estonia only.
-
----
-
-## Tech Stack
-
-| Layer       | Technology                              |
-|-------------|-----------------------------------------|
-| Backend     | Java 21 + Spring Boot 3.4.5             |
-| Database    | PostgreSQL 16 (one DB per service)      |
-| Messaging   | RabbitMQ 3 (Spring AMQP)               |
-| API Gateway | Spring Cloud Gateway                    |
-| Frontend    | Vue 3 + Vite + Vue Router + Chart.js    |
-| Scraping    | Java HttpClient + Jsoup + wget          |
-| Email (dev) | MailHog                                 |
-| Containers  | Docker + Docker Compose                 |
+**Live:** [uuriturg.cs.ut.ee](http://uuriturg.cs.ut.ee)
 
 ---
 
 ## Architecture
 
-Nine independent microservices behind a single API Gateway, each with its own database.
+```mermaid
+graph TD
+    User["🌐 Browser"] -->|HTTP| FE["Frontend\nVue 3 + Nginx\n:80"]
+    FE -->|/api/*| GW["API Gateway\nSpring Cloud\n:8080"]
 
-```
-Browser (Vue 3 :5173)
-        │
-        ▼
-API Gateway (:8080)
-        │
-   ┌────┴──────────────────────────────────────┐
-   │                                           │
-scraper-service      →  scraper_db             │
-analytics-service    →  analytics_db           │
-user-service         →  user_db                │
-alert-service        →  alert_db               │
-neighborhood-service →  neighborhood_db        │
-landlord-service     →  landlord_db            │
-listing-service      →  listing_mgmt_db        │
-notification-service →  notification_db        │
-```
+    GW --> SC["Scraper Service\n:8081"]
+    GW --> AN["Analytics Service\n:8082"]
+    GW --> AL["Alert Service\n:8084"]
+    GW --> NO["Notification Service\n:8088"]
 
-RabbitMQ events flow between services:
-- `listing.new` → scraper-service produces → alert-service consumes
-- `listing.claimed` → listing-service produces → notification-service consumes
-- `review.posted` → landlord-service produces → notification-service consumes
+    SC -->|publishes events| MQ["RabbitMQ"]
+    MQ -->|listing.queue| AL
+    MQ -->|notification.queue| NO
+
+    SC --- DB[("PostgreSQL")]
+    AN --- DB
+    AL --- DB
+    NO --- DB
+
+    NO -->|SMTP| Gmail["📧 Gmail"]
+```
 
 ---
 
-## How the Scrapers Work
+## Data Flow
 
-| Source    | Method                                                                 |
-|-----------|------------------------------------------------------------------------|
-| KV.ee     | HTML scraping via `wget` subprocess (bypasses Cloudflare TLS block) + Jsoup parsing |
-| City24    | Public REST JSON API — `api.city24.ee/et_EE/search/realties`          |
-| Rendin    | Firebase callable cloud function — POST to `cloudfunctions.net`        |
+```mermaid
+sequenceDiagram
+    participant Cron as Scheduler (6h)
+    participant Scraper as Scraper Service
+    participant Sources as KV.ee / City24 / Rendin
+    participant DB as PostgreSQL
+    participant MQ as RabbitMQ
+    participant Alert as Alert Service
+    participant Notify as Notification Service
+    participant Email as User Email
 
-Images are fetched from:
-- KV.ee → `img-kv.ee/image/object/43/…`
-- City24 → `static.img-city24.ee/object/24/…` (format code `24` discovered at runtime)
-- Rendin → various CDN fields (`imageUrl`, `coverImage`, `photos[]`, etc.)
+    Cron->>Scraper: trigger scrape
+    Scraper->>Sources: fetch listings
+    Sources-->>Scraper: raw data
+    Scraper->>DB: save / deduplicate
+    Scraper->>MQ: publish ListingEvent
+
+    MQ->>Alert: consume event
+    Alert->>DB: match against saved alerts
+    Alert->>Notify: send notification request
+
+    Notify->>Email: send email (Gmail SMTP)
+```
 
 ---
 
-## Running It
+## Features
 
-### Prerequisites
-- Docker + Docker Compose
-- Node.js 18+ (for the frontend dev server)
-- Java 21 + Maven (only if running services locally instead of Docker)
+- Scrapes **KV.ee**, **City24**, and **Rendin** every 6 hours automatically
+- Deduplicates listings — same apartment never shows twice
+- **Interactive map** of all active listings across Tartu
+- **Price trend charts** per neighbourhood over time
+- **Email alerts** — set a price/size/neighbourhood filter and get notified instantly
+- Admin dashboard with scrape control and system status
 
-### Start everything with Docker
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Java 21 + Spring Boot 3.4.5 |
+| Database | PostgreSQL 16 |
+| Messaging | RabbitMQ 3 (Spring AMQP) |
+| API Gateway | Spring Cloud Gateway |
+| Frontend | Vue 3 + Vite + Chart.js + Leaflet |
+| Scraping | Java HttpClient + Jsoup |
+| Email | Gmail SMTP (production) |
+| Containers | Docker + Docker Compose |
+
+---
+
+## Scrapers
+
+| Source | Method |
+|---|---|
+| KV.ee | HTML scraping via `wget` subprocess (bypasses Cloudflare) + Jsoup parsing |
+| City24 | Public REST JSON API — `api.city24.ee/et_EE/search/realties` |
+| Rendin | Firebase callable cloud function — POST to `cloudfunctions.net` |
+
+---
+
+## Services
+
+| Service | Port | Role |
+|---|---|---|
+| api-gateway | 8080 | Routes all frontend requests |
+| scraper-service | 8081 | Scrapes listings, stores, publishes events |
+| analytics-service | 8082 | Price trends, neighbourhood stats |
+| alert-service | 8084 | Manages alert rules, matches listings |
+| notification-service | 8088 | Sends emails via SMTP |
+
+---
+
+## Running Locally
+
+**Prerequisites:** Docker + Docker Compose
 
 ```bash
+git clone https://github.com/hashimminhas/Rental-Market.git
+cd Rental-Market
 docker compose up -d
 ```
 
-This starts all 9 services, PostgreSQL, RabbitMQ, MailHog, and the API Gateway.
+App available at **http://localhost:3000**  
+API Gateway at **http://localhost:8080**
 
-### Start the frontend dev server
+---
+
+## Production Deployment
 
 ```bash
-cd frontend
-npm install
-npm run dev
+echo "MAIL_USERNAME=your@gmail.com" > .env.prod
+echo "MAIL_PASSWORD=your-app-password" >> .env.prod
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
-
-### Trigger a manual scrape
-
-```bash
-curl -X POST http://localhost:8080/api/scraper/trigger
-```
-
----
-
-## Service Ports
-
-| Service               | Port  |
-|-----------------------|-------|
-| API Gateway           | 8080  |
-| scraper-service       | 8081  |
-| analytics-service     | 8082  |
-| user-service          | 8083  |
-| alert-service         | 8084  |
-| neighborhood-service  | 8085  |
-| landlord-service      | 8086  |
-| listing-service       | 8087  |
-| notification-service  | 8088  |
-| Frontend (Vite)       | 5173  |
-| PostgreSQL            | 5433  |
-| RabbitMQ Management   | 15672 |
-| MailHog Web UI        | 8025  |
-
----
-
-## Key API Endpoints (via Gateway at :8080)
-
-| Endpoint                        | Description                              |
-|---------------------------------|------------------------------------------|
-| `GET  /api/listings`            | All listings (filter: neighbourhood, price, size) |
-| `POST /api/scraper/trigger`     | Manually trigger a scrape run            |
-| `GET  /api/scraper/status`      | Last scrape time, counts, job status     |
-| `GET  /api/analytics/neighborhoods` | Avg rent & price/m² per neighbourhood |
-| `GET  /api/analytics/trends`    | Price trend over time                    |
-| `GET  /api/analytics/summary`   | City-wide stats                          |
-| `POST /api/users`               | Register user                            |
-| `POST /api/alerts`              | Create alert rule                        |
-| `GET  /api/neighborhoods`       | Neighbourhoods with scores               |
-| `GET  /api/landlords/{id}/reputation` | Landlord reputation score          |
-
----
-
-## Dev Tools
-
-| Tool               | URL                                      |
-|--------------------|------------------------------------------|
-| Frontend           | http://localhost:5173                    |
-| RabbitMQ UI        | http://localhost:15672 (guest / guest)   |
-| MailHog            | http://localhost:8025                    |
-| Swagger (scraper)  | http://localhost:8081/swagger-ui.html    |
-| Swagger (analytics)| http://localhost:8082/swagger-ui.html    |
-
----
-
-## Project Structure
-
-```
-uuriturg/
-├── docker-compose.yml
-├── api-gateway/
-├── scraper-service/          # KV.ee · City24 · Rendin scrapers
-├── analytics-service/        # Price trends, neighbourhood stats
-├── user-service/             # User accounts, saved searches
-├── alert-service/            # Alert rules & matching
-├── neighborhood-service/     # Neighbourhood data & reviews
-├── landlord-service/         # Landlord profiles & reviews
-├── listing-service/          # Managed listings & ownership claims
-├── notification-service/     # Email & in-app notifications
-└── frontend/                 # Vue 3 dashboard
-```
+App runs on port **80**.
