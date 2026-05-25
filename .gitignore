@@ -37,3 +37,7 @@ postgres_data/
 
 # Spring Boot dev
 spring-boot-devtools*.jar
+
+# Environment secrets
+.env
+.env.prod

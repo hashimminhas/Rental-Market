@@ -20,10 +20,10 @@ spring:
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: hminhas377@gmail.com
-    password: vnkzjizsfyabpugh
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:hminhas377@gmail.com}
+    password: ${MAIL_PASSWORD:vnkzjizsfyabpugh}
     properties:
       mail:
         smtp:
@@ -37,10 +37,6 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /api-docs
-
-user:
-  service:
-    base-url: ${USER_SERVICE_URL:http://localhost:8083}
 
 messaging:
   exchange:

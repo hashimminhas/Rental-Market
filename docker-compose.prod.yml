@@ -1,0 +1,154 @@
+version: "3.9"
+
+services:
+
+  # ── Infrastructure ───────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16
+    container_name: uuriturg-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: uuriturg-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── API Gateway ──────────────────────────────────────────────────
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: uuriturg-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      SCRAPER_SERVICE_URL: http://scraper-service:8081
+      ANALYTICS_SERVICE_URL: http://analytics-service:8082
+      ALERT_SERVICE_URL: http://alert-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8088
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Microservices ────────────────────────────────────────────────
+
+  scraper-service:
+    build: ./scraper-service
+    container_name: uuriturg-scraper-service
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  analytics-service:
+    build: ./analytics-service
+    container_name: uuriturg-analytics-service
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      SCRAPER_SERVICE_URL: http://scraper-service:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  alert-service:
+    build: ./alert-service
+    container_name: uuriturg-alert-service
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      NOTIFICATION_SERVICE_URL: http://notification-service:8088
+      SCRAPER_SERVICE_URL: http://scraper-service:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notification-service:
+    build: ./notification-service
+    container_name: uuriturg-notification-service
+    environment:
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: uuriturg-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

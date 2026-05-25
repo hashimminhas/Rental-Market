@@ -4,7 +4,9 @@
     <header class="navbar" :class="{ 'navbar--scrolled': scrolled }">
       <div class="navbar-inner">
         <router-link to="/" class="navbar-logo">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span class="logo-icon">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 14l10-8 10 8v11a1.5 1.5 0 01-1.5 1.5h-5V19h-7v7.5H7A1.5 1.5 0 016 25V14z" fill="white"/></svg>
+          </span>
           Üüriturg
         </router-link>
 
@@ -106,8 +108,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 }
 .navbar--scrolled { border-bottom-color: var(--border); box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
 .navbar-inner { max-width: 1280px; margin: 0 auto; padding: 0 24px; height: 100%; display: flex; align-items: center; gap: 32px; }
-.navbar-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; font-size: 17px; font-weight: 800; color: var(--primary); flex-shrink: 0; }
-.navbar-logo svg { color: var(--primary); }
+.navbar-logo { display: flex; align-items: center; gap: 9px; text-decoration: none; font-size: 17px; font-weight: 800; color: var(--primary); flex-shrink: 0; }
+.logo-icon { width: 30px; height: 30px; background: #0d9488; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .navbar-links { display: flex; align-items: center; gap: 4px; flex: 1; }
 .nav-link { padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--muted); transition: all .15s; }
 .nav-link:hover { color: var(--text); background: #f1f5f9; }
