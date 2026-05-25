@@ -103,7 +103,9 @@
       <div class="footer-inner">
         <div class="footer-brand">
           <div class="footer-logo">
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span style="width:26px;height:26px;background:#0d9488;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M6 14l10-8 10 8v11a1.5 1.5 0 01-1.5 1.5h-5V19h-7v7.5H7A1.5 1.5 0 016 25V14z" fill="white"/></svg>
+            </span>
             Üüriturg
           </div>
           <p class="footer-tagline">Tartu's real-time rental aggregator.<br>All listings in one place.</p>
@@ -134,7 +136,7 @@ const stats  = ref({ avg: null, min: null, max: null, total: null })
 const mapEl  = ref(null)
 const mapHood = ref('')
 let leafletMap = null
-let markers = []
+let clusterGroup = null
 
 const fmt = v => Number(v).toLocaleString('et-EE', { maximumFractionDigits: 0 })
 
@@ -161,17 +163,13 @@ async function initMap() {
   if (!mapEl.value) return
   const L = (await import('leaflet')).default
   await import('leaflet/dist/leaflet.css')
-
-  delete L.Icon.Default.prototype._getIconUrl
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
-    iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
-    shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
-  })
+  await import('leaflet.markercluster')
+  await import('leaflet.markercluster/dist/MarkerCluster.css')
+  await import('leaflet.markercluster/dist/MarkerCluster.Default.css')
 
   leafletMap = L.map(mapEl.value).setView([58.3776, 26.7290], 13)
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
   }).addTo(leafletMap)
 
   await loadMarkers(L)
@@ -179,10 +177,22 @@ async function initMap() {
 
 async function loadMarkers(L) {
   if (!leafletMap) return
-  markers.forEach(m => m.remove())
-  markers = []
+  if (clusterGroup) { leafletMap.removeLayer(clusterGroup) }
+
+  clusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    iconCreateFunction(cluster) {
+      const count = cluster.getChildCount()
+      return L.divIcon({
+        className: '',
+        html: `<div style="background:#0d9488;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(13,148,136,.5);border:2px solid #fff">${count}</div>`,
+        iconSize: [36, 36], iconAnchor: [18, 18]
+      })
+    }
+  })
+
   try {
-    let url = '/api/scraper/listings?size=300'
+    let url = '/api/listings?size=500'
     if (mapHood.value) url += `&neighborhood=${encodeURIComponent(mapHood.value)}`
     const r = await fetch(url)
     if (!r.ok) return
@@ -191,20 +201,31 @@ async function loadMarkers(L) {
     list.filter(l => l.latitude && l.longitude).forEach(l => {
       const icon = L.divIcon({
         className: '',
-        html: `<div style="background:#0d9488;color:#fff;padding:3px 7px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25)">€${Math.round(l.price)}</div>`,
-        iconAnchor: [20, 12]
+        html: `<svg width="28" height="40" viewBox="0 0 28 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26S28 24.5 28 14C28 6.268 21.732 0 14 0z" fill="#0d9488"/><circle cx="14" cy="14" r="6" fill="white"/></svg>`,
+        iconSize: [28, 40],
+        iconAnchor: [14, 40],
+        popupAnchor: [0, -40]
       })
-      const m = L.marker([l.latitude, l.longitude], { icon })
-        .bindPopup(`<b>${l.title || 'Apartment'}</b><br>${l.neighborhood || ''}<br>€${l.price}/month`)
-        .addTo(leafletMap)
-      markers.push(m)
+      L.marker([l.latitude, l.longitude], { icon })
+        .bindPopup(`
+          <div style="min-width:160px">
+            <div style="font-weight:700;font-size:13px;margin-bottom:4px">${l.title || 'Apartment'}</div>
+            <div style="color:#64748b;font-size:12px;margin-bottom:6px">${l.neighborhood || 'Tartu'}</div>
+            <div style="font-size:16px;font-weight:800;color:#0d9488">€${Math.round(l.price)}<span style="font-size:11px;font-weight:500;color:#64748b">/month</span></div>
+            ${l.size ? `<div style="font-size:11px;color:#94a3b8;margin-top:2px">${l.size} m² · ${l.rooms || '?'} rooms</div>` : ''}
+            ${l.url ? `<a href="${l.url}" target="_blank" style="display:inline-block;margin-top:8px;padding:4px 10px;background:#0d9488;color:#fff;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none">View listing →</a>` : ''}
+          </div>
+        `, { maxWidth: 220 })
+        .addTo(clusterGroup)
     })
   } catch {}
+
+  leafletMap.addLayer(clusterGroup)
 }
 
 watch(mapHood, async () => {
   const L = (await import('leaflet')).default
-  loadMarkers(L)
+  await loadMarkers(L)
 })
 
 onMounted(async () => {
