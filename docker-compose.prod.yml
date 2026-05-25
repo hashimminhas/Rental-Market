@@ -42,7 +42,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
       SCRAPER_SERVICE_URL: http://scraper-service:8081
       ANALYTICS_SERVICE_URL: http://analytics-service:8082
       ALERT_SERVICE_URL: http://alert-service:8084
@@ -66,7 +66,7 @@ services:
     build: ./scraper-service
     container_name: uuriturg-scraper-service
     environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
@@ -84,7 +84,7 @@ services:
     build: ./analytics-service
     container_name: uuriturg-analytics-service
     environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
@@ -103,7 +103,7 @@ services:
     build: ./alert-service
     container_name: uuriturg-alert-service
     environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
@@ -123,7 +123,7 @@ services:
     build: ./notification-service
     container_name: uuriturg-notification-service
     environment:
-      JAVA_OPTS: "-Xms128m -Xmx256m"
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
@@ -145,7 +145,7 @@ services:
     build: ./frontend
     container_name: uuriturg-frontend
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       - api-gateway
     restart: unless-stopped
