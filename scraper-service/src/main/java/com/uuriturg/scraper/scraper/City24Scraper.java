@@ -71,7 +71,7 @@ public class City24Scraper implements RentalScraper {
                 for (JsonNode item : items) {
                     try {
                         Listing l = parseApiItem(item);
-                        if (l != null) listings.add(l);
+                        if (l != null && l.getPrice() != null && l.getPrice().doubleValue() >= 150) listings.add(l);
                     } catch (Exception e) {
                         log.warn("City24: parse error — {}", e.getMessage());
                     }
