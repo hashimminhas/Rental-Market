@@ -63,7 +63,8 @@ public class KvEeScraper implements RentalScraper {
 
                 for (Element article : articles) {
                     Listing listing = parseArticle(article);
-                    if (listing != null && seen.add(listing.getExternalId())) {
+                    if (listing != null && seen.add(listing.getExternalId())
+                            && listing.getPrice() != null && listing.getPrice().doubleValue() >= 150) {
                         all.add(listing);
                     }
                 }
