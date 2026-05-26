@@ -18,7 +18,7 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID notificationId;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private UUID recipientUserId;
 
     @Enumerated(EnumType.STRING)
