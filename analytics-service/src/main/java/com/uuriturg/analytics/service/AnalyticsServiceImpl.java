@@ -88,17 +88,14 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .mapToInt(s -> s.getListingCount() != null ? s.getListingCount() : 0)
                 .sum();
 
-        BigDecimal cheapest = latest.stream()
-                .map(NeighborhoodSnapshot::getAveragePrice)
+        List<ScraperListingDto> allListings = scraperClient.getListings(null, null);
+        List<BigDecimal> allPrices = allListings.stream()
+                .map(ScraperListingDto::getPrice)
                 .filter(Objects::nonNull)
-                .min(Comparator.naturalOrder())
-                .orElse(null);
+                .collect(Collectors.toList());
 
-        BigDecimal mostExpensive = latest.stream()
-                .map(NeighborhoodSnapshot::getAveragePrice)
-                .filter(Objects::nonNull)
-                .max(Comparator.naturalOrder())
-                .orElse(null);
+        BigDecimal cheapest = allPrices.stream().min(Comparator.naturalOrder()).orElse(null);
+        BigDecimal mostExpensive = allPrices.stream().max(Comparator.naturalOrder()).orElse(null);
 
         BigDecimal avgPrice = average(latest.stream()
                 .map(NeighborhoodSnapshot::getAveragePrice)
