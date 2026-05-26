@@ -159,7 +159,7 @@ public class NotificationServiceImpl implements NotificationService {
         }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("Üüriturg Alerts <hminhas377@gmail.com>");
+            message.setFrom("Üüriturg Alerts <works.hashiim@gmail.com>");
             message.setTo(to);
             message.setSubject(subject);
             message.setText(body);
