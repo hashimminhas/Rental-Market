@@ -14,7 +14,18 @@
         <div class="form-card-title">{{ editId ? 'Edit alert' : 'Create new alert' }}</div>
         <form @submit.prevent="save">
           <div class="form-group">
-            <label class="form-label">Your email *</label>
+            <label class="form-label">
+              Your email *
+              <span class="privacy-tip-wrap">
+                <span class="privacy-tip-btn">ⓘ</span>
+                <span class="privacy-tip-box">
+                  <strong>Privacy notice</strong><br>
+                  We store your email only to send matching rental alerts.<br>
+                  We never share it with third parties.<br>
+                  Delete your alert at any time to stop all emails.
+                </span>
+              </span>
+            </label>
             <input v-model="f.email" type="email" class="form-input" placeholder="you@example.com" required />
             <div class="form-hint">We'll email you when a match is found. No account needed.</div>
           </div>
@@ -189,4 +200,19 @@ onMounted(load)
 .acard-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
 .acard-ft    { display:flex; align-items:center; justify-content:space-between; }
 .chip { font-size:.75rem; background:var(--primary-light); color:var(--primary-dark); padding:2px 8px; border-radius:20px; font-weight:500; }
+
+.privacy-tip-wrap { position:relative; display:inline-flex; align-items:center; margin-left:5px; vertical-align:middle; }
+.privacy-tip-btn  { font-size:.8rem; color:var(--muted); cursor:default; user-select:none; line-height:1; }
+.privacy-tip-box  {
+  display:none; position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%);
+  background:#1e293b; color:#e2e8f0; font-size:.75rem; font-weight:400;
+  line-height:1.55; padding:10px 13px; border-radius:8px; width:230px;
+  box-shadow:0 4px 16px rgba(0,0,0,.25); z-index:100; pointer-events:none;
+  white-space:normal; text-transform:none; letter-spacing:0;
+}
+.privacy-tip-box::after {
+  content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+  border:6px solid transparent; border-top-color:#1e293b;
+}
+.privacy-tip-wrap:hover .privacy-tip-box { display:block; }
 </style>

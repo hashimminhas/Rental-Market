@@ -118,7 +118,11 @@
           </div>
         </div>
         <div class="footer-copy">
-          Data updated every 6 hours from public listing sources.<br>
+          Listing data sourced from
+          <a href="https://www.kv.ee" target="_blank" rel="noopener" class="footer-src-link">KV.ee</a>,
+          <a href="https://www.city24.ee" target="_blank" rel="noopener" class="footer-src-link">City24</a> and
+          <a href="https://rendin.co" target="_blank" rel="noopener" class="footer-src-link">Rendin</a>.
+          All content belongs to the respective portals and their advertisers.<br>
           © {{ new Date().getFullYear() }} Üüriturg
         </div>
       </div>
@@ -283,6 +287,8 @@ onMounted(async () => {
 .footer-link { display: block; font-size: 13px; color: #94a3b8; text-decoration: none; margin-bottom: 6px; transition: color .15s; }
 .footer-link:hover { color: #fff; }
 .footer-copy { font-size: 12px; text-align: right; line-height: 1.7; }
+.footer-src-link { color: #94a3b8; text-decoration: underline; text-underline-offset: 2px; transition: color .15s; }
+.footer-src-link:hover { color: #fff; }
 
 /* Responsive */
 @media(max-width: 768px) {
