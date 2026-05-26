@@ -230,7 +230,7 @@ onMounted(async () => {
 }
 .hero-bg {
   position: absolute; inset: 0;
-  background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Tartu_from_toome_hill.jpg/1280px-Tartu_from_toome_hill.jpg');
+  background-image: url('https://visittartu.com/wp-content/uploads/2026/05/764140-ppaaver_dji__0017_d-21-keskmine-1024x683.jpg');
   background-size: cover; background-position: center;
   opacity: 0.35;
 }
