@@ -32,6 +32,10 @@ spring:
             enable: true
             required: true
 
+user:
+  service:
+    base-url: ${USER_SERVICE_URL:http://user-service:8083}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

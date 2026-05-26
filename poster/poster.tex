@@ -1,0 +1,252 @@
+\documentclass[12pt]{article}
+\usepackage[a0paper, portrait, margin=2.5cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, raster}
+\usepackage{graphicx}
+\usepackage{multicol}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{qrcode}
+\usepackage{hyperref}
+\usepackage{microtype}
+\pagestyle{empty}
+
+% ── Colours ──────────────────────────────────────────────────────────────
+\definecolor{primary}{HTML}{0d9488}
+\definecolor{primarydark}{HTML}{0f766e}
+\definecolor{primarylight}{HTML}{e0f2f1}
+\definecolor{dark}{HTML}{0f172a}
+\definecolor{muted}{HTML}{64748b}
+
+% ── Font sizes for A0 ────────────────────────────────────────────────────
+\renewcommand{\normalsize}{\fontsize{26}{32}\selectfont}
+\renewcommand{\small}{\fontsize{22}{28}\selectfont}
+\renewcommand{\footnotesize}{\fontsize{18}{24}\selectfont}
+\renewcommand{\large}{\fontsize{32}{40}\selectfont}
+\renewcommand{\Large}{\fontsize{40}{50}\selectfont}
+\renewcommand{\LARGE}{\fontsize{52}{62}\selectfont}
+\renewcommand{\huge}{\fontsize{70}{84}\selectfont}
+\renewcommand{\Huge}{\fontsize{90}{108}\selectfont}
+\normalsize
+
+% ── Box style ────────────────────────────────────────────────────────────
+\tcbset{
+  posterbox/.style={
+    colback=primarylight,
+    colframe=primary,
+    colbacktitle=primary,
+    coltitle=white,
+    fonttitle=\large\bfseries,
+    boxrule=2pt,
+    arc=6pt,
+    title=#1,
+    top=8pt, bottom=8pt, left=10pt, right=10pt,
+    toptitle=6pt, bottomtitle=6pt,
+    before=\vspace{0.6cm},
+  }
+}
+
+\begin{document}
+
+% ═══════════════════════════════════════════════════════════════════════════
+% HEADER
+% ═══════════════════════════════════════════════════════════════════════════
+\begin{tcolorbox}[
+  colback=primary, colframe=primary,
+  arc=0pt, boxrule=0pt,
+  left=20pt, right=20pt, top=20pt, bottom=20pt
+]
+  \begin{minipage}[c]{0.75\textwidth}
+    {\Huge\bfseries\color{white} Üüriturg}\\[6pt]
+    {\LARGE\color{white} Tartu's Real-Time Rental Market Aggregator}\\[8pt]
+    {\large\color{white!80!primary} Find your next apartment faster — all Tartu listings in one place}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[c]{0.18\textwidth}
+    \centering
+    \color{white}
+    \qrcode[height=5cm]{https://uuriturg.cs.ut.ee}\\[4pt]
+    {\large\bfseries uuriturg.cs.ut.ee}
+  \end{minipage}
+\end{tcolorbox}
+
+% Author bar
+\begin{tcolorbox}[
+  colback=primarydark, colframe=primarydark,
+  arc=0pt, boxrule=0pt,
+  left=20pt, right=20pt, top=8pt, bottom=8pt
+]
+  \centering\color{white}\large
+  \textbf{Hashim Ali} \quad\textbullet\quad
+  MSc Computer Science \quad\textbullet\quad
+  Institute of Computer Science, University of Tartu \quad\textbullet\quad
+  Supervisor: [Supervisor Name]
+\end{tcolorbox}
+
+\vspace{0.4cm}
+
+% ═══════════════════════════════════════════════════════════════════════════
+% BODY — 2 COLUMNS
+% ═══════════════════════════════════════════════════════════════════════════
+\setlength{\columnsep}{1.5cm}
+\begin{multicols}{2}
+
+% ── LEFT COLUMN ────────────────────────────────────────────────────────────
+
+\begin{tcolorbox}[posterbox={The Problem}]
+  Students and residents searching for a rental apartment in Tartu must manually check
+  \textbf{KV.ee}, \textbf{City24}, and \textbf{Rendin} separately — often multiple times
+  per day. Listings disappear within hours and there is no way to track price changes
+  or get notified when something affordable appears.
+\end{tcolorbox}
+
+\begin{tcolorbox}[posterbox={The Solution}]
+  \textbf{Üüriturg} automatically scrapes all three platforms every \textbf{6 hours},
+  deduplicates listings, and shows everything in one clean interface — with an
+  \textbf{interactive map}, \textbf{price trend charts} per neighbourhood, and instant
+  \textbf{email alerts} when a matching listing appears.
+\end{tcolorbox}
+
+\begin{tcolorbox}[posterbox={How It Works}]
+  \begin{enumerate}[leftmargin=2cm, itemsep=5pt]
+    \item \textbf{Scraper} fetches listings from KV.ee, City24 and Rendin
+    \item \textbf{Deduplication} — same apartment never appears twice
+    \item \textbf{RabbitMQ} delivers new listing events to alert service
+    \item \textbf{Alert Service} matches listings against saved user criteria
+    \item \textbf{Notification Service} sends email instantly via SMTP
+  \end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[posterbox={Scraper Methods}]
+  \begin{tabular}{>{\bfseries}p{3.5cm} p{10cm}}
+    KV.ee    & HTML scraping via \texttt{wget} subprocess (bypasses Cloudflare) + Jsoup parsing \\[4pt]
+    City24   & Public REST JSON API \texttt{api.city24.ee} \\[4pt]
+    Rendin   & Firebase callable cloud function (POST) \\
+  \end{tabular}
+\end{tcolorbox}
+
+\begin{tcolorbox}[posterbox={System Architecture}]
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.0cm and 1.0cm,
+    svc/.style={rectangle, rounded corners=4pt, draw=primary, fill=white,
+                text width=5cm, align=center, minimum height=1.2cm, font=\small\bfseries},
+    infra/.style={svc, fill=gray!15},
+    gw/.style={svc, fill=primary, text=white},
+    arr/.style={->, thick, color=primary}
+  ]
+    \node[gw] (fe) {Frontend\\Vue 3 + Nginx};
+    \node[gw, below=of fe] (gw) {API Gateway\\Spring Cloud};
+    \node[svc, below left=1cm and 2cm of gw] (sc) {Scraper\\Service};
+    \node[svc, below=1.5cm of gw] (an) {Analytics\\Service};
+    \node[svc, below right=1cm and 2cm of gw] (al) {Alert\\Service};
+    \node[svc, right=1.5cm of al] (no) {Notification\\Service};
+    \node[infra, below=1.5cm of sc] (mq) {RabbitMQ};
+    \node[infra, below=1.5cm of an] (db) {PostgreSQL};
+
+    \draw[arr] (fe) -- (gw);
+    \draw[arr] (gw) -- (sc);
+    \draw[arr] (gw) -- (an);
+    \draw[arr] (gw) -- (al);
+    \draw[arr] (sc) -- (mq);
+    \draw[arr] (mq) -- (al);
+    \draw[arr] (al) -- (no);
+    \draw[arr] (sc) -- (db);
+    \draw[arr] (an) -- (db);
+    \draw[arr] (al) -- (db);
+  \end{tikzpicture}
+\end{tcolorbox}
+
+\columnbreak
+
+% ── RIGHT COLUMN ───────────────────────────────────────────────────────────
+
+\begin{tcolorbox}[posterbox={Key Features}]
+  \begin{itemize}[leftmargin=2cm, itemsep=6pt]
+    \item \textbf{Interactive Map} — live listings with cluster markers across Tartu
+    \item \textbf{Price Trend Charts} — average rent over time by neighbourhood
+    \item \textbf{Email Alerts} — get notified instantly when a match appears
+    \item \textbf{Auto-Scraping} — KV.ee, City24, Rendin every 6 hours
+    \item \textbf{Admin Dashboard} — trigger scrapes, monitor system health
+    \item \textbf{Deduplication} — same listing never shown twice
+    \item \textbf{10 Neighbourhoods} — Kesklinn, Karlova, Annelinn, Supilinn...
+  \end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[posterbox={Tech Stack}]
+  \renewcommand{\arraystretch}{1.4}
+  \begin{tabular}{>{\bfseries\color{primary}}p{4cm} p{9.5cm}}
+    \toprule
+    Backend     & Java 21 + Spring Boot 3.4.5 (8 microservices) \\
+    Frontend    & Vue 3 + Vite + Leaflet + Chart.js \\
+    Database    & PostgreSQL 16 (one schema per service) \\
+    Messaging   & RabbitMQ 3 via Spring AMQP \\
+    Scraping    & Jsoup + Java HttpClient + wget \\
+    Gateway     & Spring Cloud Gateway + Resilience4j \\
+    Deployment  & Docker Compose · UT HPC (uuriturg.cs.ut.ee) \\
+    \bottomrule
+  \end{tabular}
+\end{tcolorbox}
+
+% Screenshots — upload screen1.png, screen2.png, screen3.png to Overleaf
+\begin{tcolorbox}[posterbox={Screenshots}]
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \fbox{\includegraphics[width=\linewidth]{screen1.png}}\\[4pt]
+    {\small Landing Page}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \fbox{\includegraphics[width=\linewidth]{screen2.png}}\\[4pt]
+    {\small Listings \& Map}
+  \end{minipage}
+  \vspace{0.5cm}
+  \begin{center}
+    \fbox{\includegraphics[width=0.72\linewidth]{screen3.png}}\\[4pt]
+    {\small Market Insights Dashboard}
+  \end{center}
+\end{tcolorbox}
+
+\begin{tcolorbox}[
+  colback=primary, colframe=primary, arc=6pt,
+  left=10pt, right=10pt, top=10pt, bottom=10pt,
+  before=\vspace{0.6cm}
+]
+  \centering
+  \color{white}
+  {\Large\bfseries Try it live — scan the QR code}\\[10pt]
+  \qrcode[height=6cm, color=white]{https://uuriturg.cs.ut.ee}\\[8pt]
+  {\LARGE\bfseries uuriturg.cs.ut.ee}\\[4pt]
+  {\large Browse real Tartu rental listings now}
+\end{tcolorbox}
+
+\end{multicols}
+
+% ═══════════════════════════════════════════════════════════════════════════
+% FOOTER
+% ═══════════════════════════════════════════════════════════════════════════
+\vfill
+\noindent\textcolor{primary}{\rule{\textwidth}{3pt}}
+\vspace{0.3cm}
+
+\noindent
+\begin{minipage}[c]{0.25\textwidth}
+  % Upload ics_logo.png to Overleaf (download from cs.ut.ee)
+  \includegraphics[width=0.85\linewidth]{ics_logo.png}
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.70\textwidth}
+  \raggedleft
+  {\large\bfseries Hashim Ali} · hashim@ut.ee\\[4pt]
+  {\normalsize MSc Computer Science · Institute of Computer Science · University of Tartu · 2026}\\[4pt]
+  {\normalsize\textcolor{muted}{github.com/hashimminhas/Rental-Market}}
+\end{minipage}
+
+\end{document}
