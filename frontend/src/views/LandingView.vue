@@ -5,9 +5,8 @@
     <section class="hero">
       <div class="hero-bg"></div>
       <div class="hero-content">
-        <div class="hero-badge">🏠 Tartu's #1 Rental Aggregator</div>
         <h1 class="hero-title">Find Your Perfect<br>Home in Tartu</h1>
-        <p class="hero-sub">Real-time listings from KV.ee, City24 and more — all in one place.</p>
+        <p class="hero-sub">Real-time listings from KV.ee, City24 and Rendin.</p>
         <div class="hero-ctas">
           <router-link to="/listings" class="cta-primary">Browse Listings →</router-link>
           <router-link to="/alerts" class="cta-outline">🔔 Set Price Alert</router-link>
@@ -163,10 +162,6 @@ async function initMap() {
   if (!mapEl.value) return
   const L = (await import('leaflet')).default
   await import('leaflet/dist/leaflet.css')
-  await import('leaflet.markercluster')
-  await import('leaflet.markercluster/dist/MarkerCluster.css')
-  await import('leaflet.markercluster/dist/MarkerCluster.Default.css')
-
   leafletMap = L.map(mapEl.value).setView([58.3776, 26.7290], 13)
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors', maxZoom: 19
@@ -179,17 +174,8 @@ async function loadMarkers(L) {
   if (!leafletMap) return
   if (clusterGroup) { leafletMap.removeLayer(clusterGroup) }
 
-  clusterGroup = L.markerClusterGroup({
-    maxClusterRadius: 50,
-    iconCreateFunction(cluster) {
-      const count = cluster.getChildCount()
-      return L.divIcon({
-        className: '',
-        html: `<div style="background:#0d9488;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(13,148,136,.5);border:2px solid #fff">${count}</div>`,
-        iconSize: [36, 36], iconAnchor: [18, 18]
-      })
-    }
-  })
+  const layerGroup = L.layerGroup().addTo(leafletMap)
+  clusterGroup = layerGroup
 
   try {
     let url = '/api/listings?size=500'
@@ -216,11 +202,9 @@ async function loadMarkers(L) {
             ${l.url ? `<a href="${l.url}" target="_blank" style="display:inline-block;margin-top:8px;padding:4px 10px;background:#0d9488;color:#fff;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none">View listing →</a>` : ''}
           </div>
         `, { maxWidth: 220 })
-        .addTo(clusterGroup)
+        .addTo(layerGroup)
     })
   } catch {}
-
-  leafletMap.addLayer(clusterGroup)
 }
 
 watch(mapHood, async () => {
@@ -246,9 +230,9 @@ onMounted(async () => {
 }
 .hero-bg {
   position: absolute; inset: 0;
-  background-image: url('https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1600&q=80');
+  background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Tartu_from_toome_hill.jpg/1280px-Tartu_from_toome_hill.jpg');
   background-size: cover; background-position: center;
-  opacity: 0.25;
+  opacity: 0.35;
 }
 .hero-content { position: relative; text-align: center; padding: 60px 24px; max-width: 700px; }
 .hero-badge { display: inline-block; background: rgba(255,255,255,.12); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.2); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; margin-bottom: 24px; }
