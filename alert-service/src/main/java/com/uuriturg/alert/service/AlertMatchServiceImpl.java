@@ -111,7 +111,7 @@ public class AlertMatchServiceImpl implements AlertMatchService {
                 .price(rule.getMaxPrice() != null ? rule.getMaxPrice() : java.math.BigDecimal.valueOf(500))
                 .size(rule.getMinSize() != null ? rule.getMinSize() : java.math.BigDecimal.valueOf(45))
                 .rooms(rule.getMinRooms() != null ? rule.getMinRooms() : 2)
-                .url("http://localhost:5173/listings")
+                .url("https://uuriturg.cs.ut.ee/listings")
                 .build();
 
         log.info("Test-firing alert {} to {}", alertId, rule.getEmail());
