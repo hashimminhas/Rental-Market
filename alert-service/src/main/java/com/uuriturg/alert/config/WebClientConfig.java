@@ -9,11 +9,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WebClientConfig {
 
     @Bean
-    WebClient userWebClient(@Value("${user.service.base-url}") String baseUrl) {
-        return WebClient.builder().baseUrl(baseUrl).build();
-    }
-
-    @Bean
     WebClient notificationWebClient(@Value("${notification.service.base-url}") String baseUrl) {
         return WebClient.builder().baseUrl(baseUrl).build();
     }

@@ -88,14 +88,15 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .mapToInt(s -> s.getListingCount() != null ? s.getListingCount() : 0)
                 .sum();
 
-        List<ScraperListingDto> allListings = scraperClient.getListings(null, null);
-        List<BigDecimal> allPrices = allListings.stream()
-                .map(ScraperListingDto::getPrice)
+        BigDecimal cheapest = latest.stream()
+                .map(NeighborhoodSnapshot::getMinPrice)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .min(Comparator.naturalOrder()).orElse(null);
 
-        BigDecimal cheapest = allPrices.stream().min(Comparator.naturalOrder()).orElse(null);
-        BigDecimal mostExpensive = allPrices.stream().max(Comparator.naturalOrder()).orElse(null);
+        BigDecimal mostExpensive = latest.stream()
+                .map(NeighborhoodSnapshot::getMaxPrice)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder()).orElse(null);
 
         BigDecimal avgPrice = average(latest.stream()
                 .map(NeighborhoodSnapshot::getAveragePrice)
@@ -163,6 +164,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 BigDecimal avgPrice = average(prices);
                 BigDecimal avgPricePerSqm = average(pricesPerSqm);
                 BigDecimal medianPrice = median(prices);
+                BigDecimal minPrice = prices.stream().min(Comparator.naturalOrder()).orElse(null);
+                BigDecimal maxPrice = prices.stream().max(Comparator.naturalOrder()).orElse(null);
 
                 // compute price change vs previous snapshot
                 BigDecimal priceChangePercent = null;
@@ -186,6 +189,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                         .medianPrice(medianPrice)
                         .listingCount(listings.size())
                         .priceChangePercent(priceChangePercent)
+                        .minPrice(minPrice)
+                        .maxPrice(maxPrice)
                         .build();
 
                 snapshotRepository.save(snapshot);

@@ -34,6 +34,10 @@ public class NeighborhoodSnapshot {
 
     private Integer listingCount;
 
+    private BigDecimal minPrice;
+
+    private BigDecimal maxPrice;
+
     private BigDecimal priceChangePercent;
 
     private LocalDateTime createdAt;

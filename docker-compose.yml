@@ -54,11 +54,8 @@ services:
     environment:
       SCRAPER_SERVICE_URL: http://scraper-service:8081
       ANALYTICS_SERVICE_URL: http://analytics-service:8082
-      USER_SERVICE_URL: http://user-service:8083
       ALERT_SERVICE_URL: http://alert-service:8084
-      NEIGHBORHOOD_SERVICE_URL: http://neighborhood-service:8085
-      LANDLORD_SERVICE_URL: http://landlord-service:8086
-      LISTING_SERVICE_URL: http://listing-service:8087
+
       NOTIFICATION_SERVICE_URL: http://notification-service:8088
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
@@ -111,24 +108,6 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  user-service:
-    build: ./user-service
-    container_name: uuriturg-user-service
-    ports:
-      - "8083:8083"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
   alert-service:
     build: ./alert-service
     container_name: uuriturg-alert-service
@@ -141,7 +120,6 @@ services:
       DB_PASSWORD: postgres
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
-      USER_SERVICE_URL: http://user-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8088
       SCRAPER_SERVICE_URL: http://scraper-service:8081
     depends_on:
@@ -150,65 +128,6 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  neighborhood-service:
-    build: ./neighborhood-service
-    container_name: uuriturg-neighborhood-service
-    ports:
-      - "8085:8085"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      ANALYTICS_SERVICE_URL: http://analytics-service:8082
-      USER_SERVICE_URL: http://user-service:8083
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  landlord-service:
-    build: ./landlord-service
-    container_name: uuriturg-landlord-service
-    ports:
-      - "8086:8086"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      USER_SERVICE_URL: http://user-service:8083
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  listing-service:
-    build: ./listing-service
-    container_name: uuriturg-listing-service
-    ports:
-      - "8087:8087"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      SCRAPER_SERVICE_URL: http://scraper-service:8081
-      LANDLORD_SERVICE_URL: http://landlord-service:8086
-      USER_SERVICE_URL: http://user-service:8083
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
 
   notification-service:
     build: ./notification-service
@@ -220,15 +139,10 @@ services:
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: postgres
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
       MAIL_HOST: mailhog
       MAIL_PORT: 1025
-      USER_SERVICE_URL: http://user-service:8083
     depends_on:
       postgres:
-        condition: service_healthy
-      rabbitmq:
         condition: service_healthy
 
   frontend:

@@ -14,11 +14,6 @@ spring:
       ddl-auto: update
     show-sql: true
     open-in-view: false
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -32,26 +27,11 @@ spring:
             enable: true
             required: true
 
-user:
-  service:
-    base-url: ${USER_SERVICE_URL:http://user-service:8083}
-
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
   api-docs:
     path: /api-docs
-
-messaging:
-  exchange:
-    listings: listing.events
-    landlord: landlord.events
-  queues:
-    notification-listing: notification.listing.queue
-    notification-landlord: notification.landlord.queue
-  routing-keys:
-    listing-claimed: listing.claimed
-    review-posted: review.posted
 
 management:
   endpoints:
