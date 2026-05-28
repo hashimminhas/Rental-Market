@@ -41,19 +41,6 @@ spring:
       # /api/listings/managed/** must be declared before /api/listings/**
       routes:
 
-        # Listing Service (port 8087) — landlord-managed listings
-        # MUST be first: /api/listings/managed/** is more specific than /api/listings/**
-        - id: listing-service
-          uri: ${LISTING_SERVICE_URL:http://localhost:8087}
-          predicates:
-            - Path=/api/listings/managed/**
-          filters:
-            - StripPrefix=1
-            - name: CircuitBreaker
-              args:
-                name: listingServiceCB
-                fallbackUri: forward:/fallback
-
         # Scraper Service (port 8081) — raw scraped listing data
         - id: scraper-service-listings
           uri: ${SCRAPER_SERVICE_URL:http://localhost:8081}
@@ -90,18 +77,6 @@ spring:
                 name: analyticsServiceCB
                 fallbackUri: forward:/fallback
 
-        # User Service (port 8083)
-        - id: user-service
-          uri: ${USER_SERVICE_URL:http://localhost:8083}
-          predicates:
-            - Path=/api/users/**
-          filters:
-            - StripPrefix=1
-            - name: CircuitBreaker
-              args:
-                name: userServiceCB
-                fallbackUri: forward:/fallback
-
         # Alert Service (port 8084)
         - id: alert-service
           uri: ${ALERT_SERVICE_URL:http://localhost:8084}
@@ -112,30 +87,6 @@ spring:
             - name: CircuitBreaker
               args:
                 name: alertServiceCB
-                fallbackUri: forward:/fallback
-
-        # Neighborhood Service (port 8085)
-        - id: neighborhood-service
-          uri: ${NEIGHBORHOOD_SERVICE_URL:http://localhost:8085}
-          predicates:
-            - Path=/api/neighborhoods/**
-          filters:
-            - StripPrefix=1
-            - name: CircuitBreaker
-              args:
-                name: neighborhoodServiceCB
-                fallbackUri: forward:/fallback
-
-        # Landlord Service (port 8086)
-        - id: landlord-service
-          uri: ${LANDLORD_SERVICE_URL:http://localhost:8086}
-          predicates:
-            - Path=/api/landlords/**
-          filters:
-            - StripPrefix=1
-            - name: CircuitBreaker
-              args:
-                name: landlordServiceCB
                 fallbackUri: forward:/fallback
 
         # Notification Service (port 8088)
@@ -161,29 +112,9 @@ spring:
           predicates: [ Path=/api/health/analytics ]
           filters: [ SetPath=/actuator/health ]
 
-        - id: health-user
-          uri: ${USER_SERVICE_URL:http://localhost:8083}
-          predicates: [ Path=/api/health/user ]
-          filters: [ SetPath=/actuator/health ]
-
         - id: health-alert
           uri: ${ALERT_SERVICE_URL:http://localhost:8084}
           predicates: [ Path=/api/health/alert ]
-          filters: [ SetPath=/actuator/health ]
-
-        - id: health-neighborhood
-          uri: ${NEIGHBORHOOD_SERVICE_URL:http://localhost:8085}
-          predicates: [ Path=/api/health/neighborhood ]
-          filters: [ SetPath=/actuator/health ]
-
-        - id: health-landlord
-          uri: ${LANDLORD_SERVICE_URL:http://localhost:8086}
-          predicates: [ Path=/api/health/landlord ]
-          filters: [ SetPath=/actuator/health ]
-
-        - id: health-listing
-          uri: ${LISTING_SERVICE_URL:http://localhost:8087}
-          predicates: [ Path=/api/health/listing ]
           filters: [ SetPath=/actuator/health ]
 
         - id: health-notification
@@ -217,15 +148,7 @@ resilience4j:
         base-config: default
       analyticsServiceCB:
         base-config: default
-      userServiceCB:
-        base-config: default
       alertServiceCB:
-        base-config: default
-      neighborhoodServiceCB:
-        base-config: default
-      landlordServiceCB:
-        base-config: default
-      listingServiceCB:
         base-config: default
       notificationServiceCB:
         base-config: default
