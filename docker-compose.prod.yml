@@ -150,5 +150,19 @@ services:
       - api-gateway
     restart: unless-stopped
 
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: uuriturg-umami
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: uuriturg-umami-secret-2024
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
