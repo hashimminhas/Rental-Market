@@ -159,6 +159,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/umami
       DATABASE_TYPE: postgresql
       APP_SECRET: uuriturg-umami-secret-2024
+      CLIENT_IP_HEADER: X-Forwarded-For
     depends_on:
       postgres:
         condition: service_healthy
