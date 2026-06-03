@@ -47,6 +47,8 @@
         <option value="MAAMET">Maa-amet</option>
       </select>
       <div class="fb-divider"></div>
+      <input v-model.number="fMinP" type="number" class="fb-num" placeholder="Min €" />
+      <div class="fb-divider"></div>
       <input v-model.number="fMaxP" type="number" class="fb-num" placeholder="Max €" />
       <div class="fb-divider"></div>
       <input v-model.number="fMinS" type="number" class="fb-num" placeholder="Min m²" />
@@ -204,13 +206,14 @@ const mapMarkers = []
 const q       = ref('')
 const fNeigh  = ref('')
 const fSrc    = ref('')
+const fMinP   = ref(null)
 const fMaxP   = ref(null)
 const fMinS   = ref(null)
 const fRooms  = ref('')
 const sortBy  = ref('mixed')
 
 const neighborhoods  = computed(() => [...new Set(listings.value.map(l=>l.neighborhood).filter(Boolean))].sort())
-const hasFilters     = computed(() => !!(q.value||fNeigh.value||fSrc.value||fMaxP.value||fMinS.value||fRooms.value))
+const hasFilters     = computed(() => !!(q.value||fNeigh.value||fSrc.value||fMinP.value||fMaxP.value||fMinS.value||fRooms.value))
 const mappedListings = computed(() => filteredListings.value.filter(l => l.latitude && l.longitude))
 
 const filteredListings = computed(() => {
@@ -218,6 +221,7 @@ const filteredListings = computed(() => {
   if (q.value)     { const s = q.value.toLowerCase(); a = a.filter(l => (l.title||'').toLowerCase().includes(s)||(l.neighborhood||'').toLowerCase().includes(s)) }
   if (fNeigh.value) a = a.filter(l => l.neighborhood===fNeigh.value)
   if (fSrc.value)   a = a.filter(l => l.source===fSrc.value)
+  if (fMinP.value)  a = a.filter(l => l.price!=null && l.price>=fMinP.value)
   if (fMaxP.value)  a = a.filter(l => l.price!=null && l.price<=fMaxP.value)
   if (fMinS.value)  a = a.filter(l => l.size!=null  && l.size>=fMinS.value)
   if (fRooms.value) { const r=parseInt(fRooms.value); a = a.filter(l => r===4?(l.rooms||0)>=4:l.rooms===r) }
@@ -242,7 +246,7 @@ const filteredListings = computed(() => {
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredListings.value.length/SIZE)))
 const paged      = computed(() => { const s=(pg.value-1)*SIZE; return filteredListings.value.slice(s,s+SIZE) })
 
-watch([q,fNeigh,fSrc,fMaxP,fMinS,fRooms,sortBy], ()=>{ pg.value=1 })
+watch([q,fNeigh,fSrc,fMinP,fMaxP,fMinS,fRooms,sortBy], ()=>{ pg.value=1 })
 
 watch(view, async (v) => {
   if (v === 'map') {
@@ -253,7 +257,7 @@ watch(view, async (v) => {
 })
 watch(mappedListings, () => { if (view.value==='map') rebuildMapMarkers() })
 
-function clearF(){ q.value=''; fNeigh.value=''; fSrc.value=''; fMaxP.value=null; fMinS.value=null; fRooms.value='' }
+function clearF(){ q.value=''; fNeigh.value=''; fSrc.value=''; fMinP.value=null; fMaxP.value=null; fMinS.value=null; fRooms.value='' }
 function srcLabel(s){ const m={KV_EE:'KV.EE',CITY24:'City24',KINNISVARA24:'K24',RENDIN:'Rendin',MAAMET:'Maa-amet'}; return m[s]||s||'?' }
 function srcBadge(s){ const m={KV_EE:'badge-kv',CITY24:'badge-city',KINNISVARA24:'badge-k24',RENDIN:'badge-rendin',MAAMET:'badge-maamet'}; return m[s]||'badge-gray' }
 function fmt(v){ return v!=null?Number(v).toLocaleString('et-EE',{maximumFractionDigits:0}):'—' }
