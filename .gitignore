@@ -41,7 +41,9 @@ spring-boot-devtools*.jar
 # Environment secrets
 .env
 .env.prod
+.env.*
 
 # Project context / IDE
 .claude/
 PROJECT_CONTEXT.md
+PROJECT_BRIEF.md
