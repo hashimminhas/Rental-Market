@@ -1,4 +1,4 @@
-# Üüriturg — Tartu Rental Market Monitor
+# Üüriturg  Tartu Rental Market Monitor
 
 A real-time rental aggregator for Tartu, Estonia. Automatically scrapes listings from KV.ee, City24, and Rendin, deduplicates them, tracks price trends by neighbourhood, and sends email alerts when a matching listing appears.
 
