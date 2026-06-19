@@ -21,7 +21,7 @@
           <router-link v-if="!isAdmin" to="/login" class="nav-link nav-link--muted">Admin</router-link>
           <template v-else>
             <router-link to="/dashboard" class="nav-link nav-link--muted">Admin</router-link>
-            <button class="btn-logout" @click="doLogout">Sign out</button>
+            <button class="btn-logout" @click="doLogout">Sign Out</button>
           </template>
           <!-- Mobile hamburger -->
           <button class="hamburger" @click="menuOpen=!menuOpen" aria-label="Menu">
