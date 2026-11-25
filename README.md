@@ -75,7 +75,7 @@ sequenceDiagram
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 21 + Spring Boot 3.4.5 |
+| Backend | Java 25 (LTS) + Spring Boot 3.4.5 |
 | Database | PostgreSQL 16 |
 | Messaging | RabbitMQ 3 (Spring AMQP) |
 | API Gateway | Spring Cloud Gateway |
